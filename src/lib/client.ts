@@ -74,16 +74,17 @@ export function nameAndSurname(name: string) {
 export function pitchCoordinates(formation: string): { left: number; top: number }[] {
   const shape = formation.split("-").map(Number);
   const [def, med, del] = shape.length === 3 ? shape : [4, 4, 2];
-  const rows: { count: number; top: number }[] = [
-    { count: 1, top: 90 },
-    { count: def, top: 68 },
-    { count: med, top: 44 },
-    { count: del, top: 17 },
+  // Campo apaisado: portero a la izquierda, líneas avanzando hacia la derecha.
+  const columns: { count: number; left: number }[] = [
+    { count: 1, left: 8 },
+    { count: def, left: 30 },
+    { count: med, left: 54 },
+    { count: del, left: 80 },
   ];
   const coordinates: { left: number; top: number }[] = [];
-  for (const row of rows) {
-    for (let i = 0; i < row.count; i += 1) {
-      coordinates.push({ left: ((i + 1) * 100) / (row.count + 1), top: row.top });
+  for (const column of columns) {
+    for (let i = 0; i < column.count; i += 1) {
+      coordinates.push({ left: column.left, top: ((i + 1) * 100) / (column.count + 1) });
     }
   }
   return coordinates;
