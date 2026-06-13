@@ -1,0 +1,10 @@
+{
+  "name": "Fantasy",
+  "short_name": "Fantasy",
+  "description": "Fantasy privado de fútbol para jugar con amigos",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#07120e",
+  "theme_color": "#b8f35a",
+  "icons": []
+}
