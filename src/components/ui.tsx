@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { TrendingDown, TrendingUp } from "lucide-react";
-import { initials } from "@/lib/client";
 import type { ApiPlayer } from "@/lib/types";
 
 export function PlayerAvatar({ player, small = false }: { player: Pick<ApiPlayer, "name" | "team" | "teamColor" | "teamLogo"> & { photo?: string | null }; small?: boolean }) {
@@ -23,7 +22,10 @@ export function PlayerAvatar({ player, small = false }: { player: Pick<ApiPlayer
           onError={(event) => { event.currentTarget.style.display = "none"; }}
         />
       ) : (
-        initials(player.name)
+        <svg className="avatar-silhouette" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <circle cx="12" cy="7.5" r="3.6" />
+          <path d="M4.5 21c0-4.2 3.4-7 7.5-7s7.5 2.8 7.5 7z" />
+        </svg>
       )}
       {player.teamLogo ? (
         <Image
