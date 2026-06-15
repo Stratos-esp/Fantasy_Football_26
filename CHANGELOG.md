@@ -14,11 +14,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Cambiado
 
-- Ningún cambio todavía.
+- Los retratos de jugadores se centran mejor dentro de los avatares circulares.
 
 ### Corregido
 
-- Ninguna corrección todavía.
+- Se repararon los nombres de usuarios que conservaban acentos dañados en la
+  base de datos.
 
 ## 2026-06-15
 

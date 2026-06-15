@@ -282,9 +282,9 @@ a { color:inherit; text-decoration:none; }
 .rival-pitch{height:440px;border-radius:12px}
 
 /* Avatar con foto real + escudo en esquina */
-.player-avatar .avatar-photo{position:absolute;inset:0;width:100%;height:100%;padding:0;object-fit:cover;object-position:center 12%;background:transparent;transform:scale(1.32);transform-origin:center 18%}
+.player-avatar .avatar-photo{position:absolute;inset:0;width:100%;height:100%;padding:0;object-fit:cover;object-position:center 12%;background:transparent;transform:translateY(-8%) scale(1.32);transform-origin:center 18%}
 .player-avatar.has-photo{overflow:hidden}
-.player-photo .avatar-photo,.player-photo img{object-position:center 12%;transform:scale(1.2);transform-origin:center 18%}
+.player-photo .avatar-photo,.player-photo img{object-position:center 12%;transform:translateY(-5%) scale(1.2);transform-origin:center 18%}
 .player-avatar .avatar-silhouette{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:86%;height:86%;opacity:.92;padding:0;background:transparent}
 
 /* Panel de simulación (admin/demo) */

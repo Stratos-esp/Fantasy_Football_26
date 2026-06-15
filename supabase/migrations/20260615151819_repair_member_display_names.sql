@@ -9,12 +9,16 @@ set team_name = convert_from(convert_to(team_name, 'LATIN1'), 'UTF8')
 where position(U&'\00C3' in team_name) > 0
   and position(U&'\FFFD' in team_name) = 0;
 
--- U+FFFD means the original byte was already lost, so these known names need
--- an explicit correction based on the affected production records.
+-- These production records already contain a replacement sequence, so the
+-- original accent cannot be reconstructed generically.
+update public.fantasy_users
+set display_name = U&'Administraci\00F3n'
+where username = 'administracion';
+
 update public.fantasy_users
 set display_name = U&'Denis Gonz\00E1lez'
-where display_name = U&'Denis Gonz\FFFDlez';
+where username = 'denis.gonzalez';
 
 update public.fantasy_users
 set display_name = U&'Ram\00F3n Ruiz'
-where display_name = U&'Ram\FFFDn Ruiz';
+where username = 'ramon.ruiz';
