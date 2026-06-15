@@ -83,8 +83,10 @@ export function pitchCoordinates(formation: string): { left: number; top: number
   ];
   const coordinates: { left: number; top: number }[] = [];
   for (const column of columns) {
-    for (let i = 0; i < column.count; i += 1) {
-      coordinates.push({ left: column.left, top: ((i + 1) * 100) / (column.count + 1) });
+    const n = column.count;
+    for (let i = 0; i < n; i += 1) {
+      const top = n === 1 ? 50 : 12 + (76 * i) / (n - 1);
+      coordinates.push({ left: column.left, top });
     }
   }
   return coordinates;
