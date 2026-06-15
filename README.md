@@ -39,6 +39,14 @@ copy .env.example .env.local   # y rellena las variables
 npm run dev
 ```
 
+## Colaboración
+
+- Consulta [CONTRIBUTING.md](CONTRIBUTING.md) antes de preparar una rama o un
+  pull request.
+- Registra los cambios relevantes en [CHANGELOG.md](CHANGELOG.md).
+- No trabajes directamente sobre `main`; usa ramas cortas y revisión por pull
+  request.
+
 ## Base de datos
 
 Usa el proyecto Supabase dedicado `Fantasy_Football_26` (`zrcijagotagaudmkywjx`). Todos los objetos usan el prefijo `fantasy_`. Las tablas tienen RLS y solo aceptan operaciones cuando el backend envía `FANTASY_DATABASE_API_SECRET` (verificado por hash en `private.fantasy_server_config`).
