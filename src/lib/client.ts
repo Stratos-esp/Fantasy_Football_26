@@ -1,5 +1,7 @@
 "use client";
 
+import { repairTextEncoding, repairTextTree } from "@/lib/text-encoding";
+
 export function money(value: number) {
   return `${(value / 1_000_000).toLocaleString("es-ES", { maximumFractionDigits: 1 })} M€`;
 }
@@ -34,8 +36,8 @@ export async function apiGet<T>(url: string): Promise<ApiResult<T>> {
   try {
     const response = await fetch(url, { cache: "no-store" });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) return { ok: false, error: (data as { error?: string }).error ?? "Error de red", status: response.status };
-    return { ok: true, data: data as T };
+    if (!response.ok) return { ok: false, error: repairTextEncoding((data as { error?: string }).error ?? "Error de red"), status: response.status };
+    return { ok: true, data: repairTextTree(data) as T };
   } catch {
     return { ok: false, error: "No hay conexión con el servidor.", status: 0 };
   }
@@ -49,8 +51,8 @@ export async function apiPost<T>(url: string, body?: unknown, method: "POST" | "
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) return { ok: false, error: (data as { error?: string }).error ?? "Error de red", status: response.status };
-    return { ok: true, data: data as T };
+    if (!response.ok) return { ok: false, error: repairTextEncoding((data as { error?: string }).error ?? "Error de red"), status: response.status };
+    return { ok: true, data: repairTextTree(data) as T };
   } catch {
     return { ok: false, error: "No hay conexión con el servidor.", status: 0 };
   }

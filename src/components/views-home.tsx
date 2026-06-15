@@ -4,7 +4,7 @@ import { Activity, Check, Crown, Gavel, Shield, Trophy, TrendingUp, Users } from
 import { money, nameAndSurname, pitchCoordinates, timeAgo } from "@/lib/client";
 import type { LeagueState } from "@/lib/types";
 import type { Section } from "@/components/fantasy-app";
-import { PlayerAvatar, Trend } from "@/components/ui";
+import { PlayerAvatar, TeamBadge, Trend } from "@/components/ui";
 
 export function HomeView({ state, onNavigate }: { state: LeagueState; onNavigate: (section: Section) => void }) {
   const rank = state.members.findIndex((m) => m.id === state.myMember.id) + 1;
@@ -37,7 +37,7 @@ export function HomeView({ state, onNavigate }: { state: LeagueState; onNavigate
             <button key={player.id} className="pitch-player" style={{ left: `${coordinates[index]?.left ?? 50}%`, top: `${coordinates[index]?.top ?? 50}%` }} onClick={() => onNavigate("plantilla")}>
               <PlayerAvatar player={player} small />
               {state.league.settings.captain && player.id === state.lineup.captainPlayerId && <Crown className="captain-crown" />}
-              <strong>{nameAndSurname(player.name)}</strong>
+              <strong><TeamBadge player={player} />{nameAndSurname(player.name)}</strong>
               <span>{player.lastPoints ?? "—"}</span>
             </button>
           ))}
@@ -70,7 +70,7 @@ export function HomeView({ state, onNavigate }: { state: LeagueState; onNavigate
           {state.market.slice(0, 3).map((listing) => (
             <div key={listing.id}>
               <PlayerAvatar player={listing.player} small />
-              <span><strong>{listing.player.name}</strong><small>{listing.player.team}</small></span>
+              <span><strong><TeamBadge player={listing.player} />{listing.player.name}</strong><small>{listing.player.team}</small></span>
               <div><b>{money(listing.askingPrice)}</b><Trend player={listing.player} /></div>
             </div>
           ))}

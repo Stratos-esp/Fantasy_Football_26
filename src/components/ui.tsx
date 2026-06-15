@@ -27,18 +27,23 @@ export function PlayerAvatar({ player, small = false }: { player: Pick<ApiPlayer
           <path d="M4.5 21c0-4.2 3.4-7 7.5-7s7.5 2.8 7.5 7z" />
         </svg>
       )}
-      {player.teamLogo ? (
-        <Image
-          className="avatar-badge"
-          src={player.teamLogo}
-          alt={`Escudo de ${player.team}`}
-          width={small ? 16 : 20}
-          height={small ? 16 : 20}
-          unoptimized
-          onError={(event) => { event.currentTarget.style.display = "none"; }}
-        />
-      ) : null}
     </span>
+  );
+}
+
+export function TeamBadge({ player }: { player: Pick<ApiPlayer, "team" | "teamLogo"> }) {
+  if (!player.teamLogo) return null;
+  return (
+    <Image
+      className="player-name-badge"
+      src={player.teamLogo}
+      alt=""
+      title={player.team}
+      width={16}
+      height={16}
+      unoptimized
+      onError={(event) => { event.currentTarget.style.display = "none"; }}
+    />
   );
 }
 

@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, Check, Crown, Sparkles, X } from "lucide-react";
 import { money, nameAndSurname, pitchCoordinates, positionOrder } from "@/lib/client";
 import { formations, type LeagueState, type SquadEntry } from "@/lib/types";
 import type { Notify } from "@/components/fantasy-app";
-import { PlayerAvatar, PositionTag } from "@/components/ui";
+import { PlayerAvatar, PositionTag, TeamBadge } from "@/components/ui";
 import { PlayerModal } from "@/components/player-modal";
 
 type Act = (url: string, body?: unknown, method?: "POST" | "PUT") => Promise<boolean>;
@@ -114,7 +114,7 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
               <button key={id} className="pitch-player" style={{ left: `${coordinates[index]?.left ?? 50}%`, top: `${coordinates[index]?.top ?? 50}%` }} onClick={() => setSelected(id)}>
                 <PlayerAvatar player={player} />
                 {settings.captain && id === captain && <Crown className="captain-crown" />}
-                <strong>{nameAndSurname(player.name)}</strong>
+                <strong><TeamBadge player={player} />{nameAndSurname(player.name)}</strong>
                 <span>{money(player.value)}</span>
               </button>
             );
@@ -131,7 +131,7 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
                 return (
                   <div key={id} className="bench-chip">
                     <PlayerAvatar player={player} small />
-                    <span><strong>{nameAndSurname(player.name)}</strong><small>{player.position}</small></span>
+                    <span><strong><TeamBadge player={player} />{nameAndSurname(player.name)}</strong><small>{player.position}</small></span>
                     <div className="bench-actions">
                       <button onClick={() => moveBench(id, -1)} disabled={index === 0} aria-label="Subir"><ArrowUp /></button>
                       <button onClick={() => moveBench(id, 1)} disabled={index === bench.length - 1} aria-label="Bajar"><ArrowDown /></button>
@@ -154,7 +154,7 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
             <button className={`squad-row clickable ${!isStarter && !isBench ? "bench" : ""}`} key={player.id} onClick={() => setDetailId(player.id)}>
               <PlayerAvatar player={player} small />
               <span>
-                <strong>{player.name}{settings.captain && player.id === captain && <Crown />}</strong>
+                <strong><TeamBadge player={player} />{player.name}{settings.captain && player.id === captain && <Crown />}</strong>
                 <small>{player.position} · {player.team} · {isStarter ? "Titular" : isBench ? "Suplente" : "Sin convocar"}</small>
               </span>
               <div><b>{Math.round(player.seasonPoints)}</b><small>pts</small></div>
@@ -170,7 +170,7 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
             <button className="modal-close" onClick={() => setSelected(null)}><X /></button>
             <PlayerAvatar player={selectedPlayer} />
             <PositionTag position={selectedPlayer.position} />
-            <h2>{selectedPlayer.name}</h2>
+            <h2><TeamBadge player={selectedPlayer} />{selectedPlayer.name}</h2>
             <p>{selectedPlayer.team} · {money(selectedPlayer.value)} · {Math.round(selectedPlayer.seasonPoints)} pts</p>
             {settings.captain && selected !== captain && (
               <button className="button full" onClick={() => { setCaptain(selected); setDirty(true); setSelected(null); }}><Crown size={16} /> Hacer capitán (x{settings.captainMultiplier})</button>
@@ -180,7 +180,7 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
               {candidates.map((candidate) => (
                 <button key={candidate.id} onClick={() => selected && swap(selected, candidate.id)}>
                   <PlayerAvatar player={candidate} small />
-                  <span><strong>{candidate.name}</strong><small>{candidate.team} · {Math.round(candidate.seasonPoints)} pts</small></span>
+                  <span><strong><TeamBadge player={candidate} />{candidate.name}</strong><small>{candidate.team} · {Math.round(candidate.seasonPoints)} pts</small></span>
                   <em>{money(candidate.value)}</em>
                 </button>
               ))}

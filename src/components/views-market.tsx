@@ -6,7 +6,7 @@ import { Crown, Shirt } from "lucide-react";
 import { countdown, money, moneyInput, nameAndSurname, pitchCoordinates } from "@/lib/client";
 import type { LeagueState, MarketListing, RivalSquadEntry, SquadEntry } from "@/lib/types";
 import type { Notify } from "@/components/fantasy-app";
-import { PlayerAvatar, PositionTag, Trend } from "@/components/ui";
+import { PlayerAvatar, PositionTag, TeamBadge, Trend } from "@/components/ui";
 import { PlayerModal } from "@/components/player-modal";
 
 const tabHelp: Record<string, string> = {
@@ -110,7 +110,7 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
                 {listing.kind === "bid" && <span className="card-countdown" title="Cierre de la subasta">{countdown(listing.closesAt)}</span>}
                 <button className="market-card-id" onClick={() => setDetailId(listing.player.id)}>
                   <div className="market-card-top"><PlayerAvatar player={listing.player} /><PositionTag position={listing.player.position} /><Trend player={listing.player} /></div>
-                  <h3>{listing.player.name}</h3>
+                  <h3><TeamBadge player={listing.player} />{listing.player.name}</h3>
                   <p>{listing.player.team}</p>
                 </button>
                 <div className="player-stats">
@@ -143,7 +143,7 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
               {state.squad.map((player) => (
                 <div className="sell-row" key={player.id}>
                   <PlayerAvatar player={player} small />
-                  <span><strong>{player.name}</strong><small>{player.position} · {player.team} · Cláusula {player.clauseValue ? money(player.clauseValue) : "—"}</small></span>
+                  <span><strong><TeamBadge player={player} />{player.name}</strong><small>{player.position} · {player.team} · Cláusula {player.clauseValue ? money(player.clauseValue) : "—"}</small></span>
                   <em>{money(player.value)}</em>
                   <div className="row-actions">
                     <button className="ghost-button" disabled={busy} onClick={async () => {
@@ -161,7 +161,7 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
               {state.myListings.map((listing) => (
                 <div className="sell-row" key={listing.id}>
                   <PlayerAvatar player={listing.player} small />
-                  <span><strong>{listing.player.name}</strong><small>Precio fijo</small></span>
+                  <span><strong><TeamBadge player={listing.player} />{listing.player.name}</strong><small>Precio fijo</small></span>
                   <em>{money(listing.askingPrice)}</em>
                   <div className="row-actions">
                     <button className="ghost-button" disabled={busy} onClick={() => run({ action: "unlist", listingId: listing.id }, "Anuncio retirado.")}>Retirar</button>
@@ -189,7 +189,7 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
                     <div className="sell-row" key={player.id}>
                       <button className="sell-row-id" onClick={() => setDetailId(player.id)}>
                         <PlayerAvatar player={player} small />
-                        <span><strong>{player.name}</strong><small>{player.position} · {player.team}</small></span>
+                        <span><strong><TeamBadge player={player} />{player.name}</strong><small>{player.position} · {player.team}</small></span>
                       </button>
                       <em>{money(player.value)}</em>
                       <div className="row-actions">
@@ -219,7 +219,7 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
               {state.offersIn.map((offer) => (
                 <div className="sell-row" key={offer.id}>
                   <PlayerAvatar player={offer.player} small />
-                  <span><strong>{offer.player.name}</strong><small>{offer.fromName} ofrece <b>{money(offer.amount)}</b> (valor {money(offer.player.value)})</small></span>
+                  <span><strong><TeamBadge player={offer.player} />{offer.player.name}</strong><small>{offer.fromName} ofrece <b>{money(offer.amount)}</b> (valor {money(offer.player.value)})</small></span>
                   <div className="row-actions">
                     <button className="button button-small" disabled={busy} onClick={() => run({ action: "respondOffer", offerId: offer.id, accept: true }, "Traspaso completado.")}>Aceptar</button>
                     <button className="ghost-button" disabled={busy} onClick={() => run({ action: "respondOffer", offerId: offer.id, accept: false }, "Oferta rechazada.")}>Rechazar</button>
@@ -235,7 +235,7 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
               {myBids.map((listing) => (
                 <div className="sell-row" key={listing.id}>
                   <PlayerAvatar player={listing.player} small />
-                  <span><strong>{listing.player.name}</strong><small>Puja: {money(listing.myBid!)} · cierra en {countdown(listing.closesAt)}</small></span>
+                  <span><strong><TeamBadge player={listing.player} />{listing.player.name}</strong><small>Puja: {money(listing.myBid!)} · cierra en {countdown(listing.closesAt)}</small></span>
                   <div className="row-actions">
                     <button className="ghost-button" onClick={() => { setBidTarget(listing); setAmount(String(listing.myBid! / 1e6)); }}>Cambiar</button>
                     <button className="ghost-button" disabled={busy} onClick={() => run({ action: "cancelBid", listingId: listing.id }, "Puja retirada.")}>Retirar</button>
@@ -245,7 +245,7 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
               {state.offersOut.map((offer) => (
                 <div className="sell-row" key={offer.id}>
                   <PlayerAvatar player={offer.player} small />
-                  <span><strong>{offer.player.name}</strong><small>Oferta a {offer.toName}: {money(offer.amount)}</small></span>
+                  <span><strong><TeamBadge player={offer.player} />{offer.player.name}</strong><small>Oferta a {offer.toName}: {money(offer.amount)}</small></span>
                   <div className="row-actions">
                     <button className="ghost-button" disabled={busy} onClick={() => run({ action: "cancelOffer", offerId: offer.id }, "Oferta cancelada.")}>Cancelar</button>
                   </div>
@@ -266,7 +266,7 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
               return <>
                 <PlayerAvatar player={player} />
                 <PositionTag position={player.position} />
-                <h2>{player.name}</h2>
+                <h2><TeamBadge player={player} />{player.name}</h2>
                 <p>{player.team} · Valor {money(player.value)}</p>
               </>;
             })()}
@@ -305,7 +305,7 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
                       <div key={id} className="pitch-player" style={{ left: `${coords[index]?.left ?? 50}%`, top: `${coords[index]?.top ?? 50}%` }}>
                         <PlayerAvatar player={player} />
                         {state.league.settings.captain && id === rl.captainPlayerId && <Crown className="captain-crown" />}
-                        <strong>{nameAndSurname(player.name)}</strong>
+                        <strong><TeamBadge player={player} />{nameAndSurname(player.name)}</strong>
                         <span>{money(player.value)}</span>
                       </div>
                     );

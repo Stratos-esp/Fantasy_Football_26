@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { X } from "lucide-react";
 import { apiGet, initials, money } from "@/lib/client";
-import { PositionTag } from "@/components/ui";
+import { PositionTag, TeamBadge } from "@/components/ui";
 
 export type PlayerDetail = {
   id: string;
@@ -75,11 +75,10 @@ export function PlayerModal({ leagueId, playerId, actions = [], onClose }: { lea
             <div className="player-modal-head">
               <span className="player-photo" style={{ background: detail.teamColor }}>
                 {detail.photo ? <Image src={detail.photo} alt={detail.name} width={72} height={72} unoptimized /> : <b>{initials(detail.name)}</b>}
-                {detail.teamLogo && <Image className="player-photo-badge" src={detail.teamLogo} alt={detail.team} width={26} height={26} unoptimized />}
               </span>
               <div>
                 <div className="player-modal-tags"><PositionTag position={detail.position} />{detail.status === "injured" && <span className="status-pill injured">Lesionado</span>}</div>
-                <h2>{detail.name}</h2>
+                <h2><TeamBadge player={detail} />{detail.name}</h2>
                 <p>{detail.team}</p>
               </div>
             </div>
