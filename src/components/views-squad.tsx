@@ -45,7 +45,7 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
     }
   }, [state.lineup, dirty]);
 
-  const coordinates = pitchCoordinates(formation);
+  const coordinates = pitchCoordinates(formation, "vertical");
   const starterPlayers = starters.map((id) => playersById.get(id));
   const valid = starters.length === 11 && starterPlayers.every(Boolean);
 
@@ -106,7 +106,7 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
             <button className="button button-small" disabled={saving || !dirty} onClick={save}>{saving ? "Guardando..." : dirty ? "Guardar" : <><Check size={14} /> Guardado</>}</button>
           </div>
         </div>
-        <div className="pitch full-pitch">
+        <div className="pitch full-pitch vertical-pitch">
           {starters.map((id, index) => {
             const player = playersById.get(id);
             if (!player) return null;

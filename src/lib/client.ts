@@ -73,9 +73,26 @@ export function nameAndSurname(name: string) {
   return `${parts[0]} ${parts[parts.length - 1]}`;
 }
 
-export function pitchCoordinates(formation: string): { left: number; top: number }[] {
+export function pitchCoordinates(formation: string, orientation: "horizontal" | "vertical" = "horizontal"): { left: number; top: number }[] {
   const shape = formation.split("-").map(Number);
   const [def, med, del] = shape.length === 3 ? shape : [4, 4, 2];
+  if (orientation === "vertical") {
+    const lines: { count: number; top: number }[] = [
+      { count: 1, top: 88 },
+      { count: def, top: 66 },
+      { count: med, top: 43 },
+      { count: del, top: 18 },
+    ];
+    const coordinates: { left: number; top: number }[] = [];
+    for (const line of lines) {
+      const n = line.count;
+      for (let i = 0; i < n; i += 1) {
+        const left = n === 1 ? 50 : 14 + (72 * i) / (n - 1);
+        coordinates.push({ left, top: line.top });
+      }
+    }
+    return coordinates;
+  }
   // Campo apaisado: portero a la izquierda, líneas avanzando hacia la derecha.
   const columns: { count: number; left: number }[] = [
     { count: 1, left: 8 },

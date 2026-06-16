@@ -22,10 +22,7 @@ export function PlayerAvatar({ player, small = false }: { player: Pick<ApiPlayer
           onError={(event) => { event.currentTarget.style.display = "none"; }}
         />
       ) : (
-        <svg className="avatar-silhouette" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <circle cx="12" cy="7.5" r="3.6" />
-          <path d="M4.5 21c0-4.2 3.4-7 7.5-7s7.5 2.8 7.5 7z" />
-        </svg>
+        <b className="avatar-initials">{initials(player.name)}</b>
       )}
     </span>
   );
@@ -54,6 +51,13 @@ function contrast(hex: string) {
   const g = parseInt(value.slice(2, 4), 16);
   const b = parseInt(value.slice(4, 6), 16);
   return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? "#16221a" : "#fff";
+}
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
 export function Trend({ player }: { player: ApiPlayer }) {

@@ -11,10 +11,16 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 ### Añadido
 
 - Documentación común para mantener el historial y coordinar contribuciones.
+- Modal de resultados en Clasificación para consultar las jornadas disputadas.
+- Ajuste para que cada miembro pueda cambiar el nombre de su equipo desde
+  Ajustes.
 
 ### Cambiado
 
 - Los retratos de jugadores se centran mejor dentro de los avatares circulares.
+- La vista Mi plantilla usa un campo vertical de abajo a arriba para configurar
+  la alineación.
+- Los jugadores sin foto muestran iniciales dentro de un círculo de equipo.
 
 ### Corregido
 

@@ -966,6 +966,25 @@ export async function getLeagueState(db: Db, league: LeagueRow, member: MemberRo
 
   // Mi alineación actual.
   const matchday = await activeMatchday(db, league);
+  const { data: finishedMatchdays } = await db
+    .from("fantasy_matchdays")
+    .select("id, number")
+    .eq("league_id", league.id)
+    .eq("status", "finished")
+    .order("number", { ascending: false })
+    .limit(TOTAL_MATCHDAYS);
+  const finishedIds = (finishedMatchdays ?? []).map((row) => row.id as string);
+  const { data: finishedLineups } = finishedIds.length > 0
+    ? await db.from("fantasy_lineups").select("matchday_id, league_member_id, total_points").in("matchday_id", finishedIds)
+    : { data: [] };
+  const roundResults: LeagueState["roundResults"] = (finishedMatchdays ?? []).map((matchdayRow) => ({
+    number: Number(matchdayRow.number),
+    memberPoints: membersData.map((m) => ({
+      memberId: m.id,
+      points: Number((finishedLineups ?? []).find((row) => row.matchday_id === matchdayRow.id && row.league_member_id === m.id)?.total_points ?? 0),
+    })),
+  }));
+
   let lineup: LineupState = { formation: "4-4-2", captainPlayerId: null, starters: [], bench: [] };
   if (matchday) {
     const { data: lineupRow } = await db.from("fantasy_lineups").select("id, formation, captain_player_id").eq("matchday_id", matchday.id).eq("league_member_id", member.id).maybeSingle();
@@ -1134,6 +1153,7 @@ export async function getLeagueState(db: Db, league: LeagueRow, member: MemberRo
     offersOut: (offers ?? []).filter((o) => o.from_member_id === member.id).map(toOffer),
     myListings: marketListings.filter((l) => l.sellerMemberId === member.id),
     lastMatchday,
+    roundResults,
     activity,
     notifications,
     unreadCount,

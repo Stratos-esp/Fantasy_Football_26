@@ -273,6 +273,18 @@ a { color:inherit; text-decoration:none; }
 .player-modal-owner strong{color:var(--ink)}
 .player-modal-actions{display:flex;gap:10px;flex-wrap:wrap}
 .player-modal-actions .button{flex:1;min-width:140px}
+.round-results-modal{text-align:left;width:min(480px,94vw)}
+.round-results-modal h2{text-align:center}
+.round-results-modal>select{width:100%;border:1px solid var(--line);background:var(--surface-2);border-radius:10px;min-height:40px;padding:0 12px;margin:8px 0 14px;color:var(--ink);font-weight:800}
+.round-results-list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.round-results-list>div{display:grid;grid-template-columns:24px 34px 1fr auto;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--surface)}
+.round-results-list>div:last-child{border-bottom:0}
+.round-results-list b{font:700 12px var(--font-display)}
+.round-results-list i{width:31px;height:31px;border-radius:8px;display:grid;place-items:center;font-style:normal;font:800 8px var(--font-display);color:#16221a}
+.round-results-list span{display:flex;flex-direction:column}
+.round-results-list strong{font-size:11px}
+.round-results-list small{font-size:8px;color:var(--muted)}
+.round-results-list em{font-style:normal;font:700 12px var(--font-display);color:var(--positive)}
 
 /* Modal de alineación de rival */
 .lineup-modal{position:relative;width:min(520px,95vw);max-height:92vh;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:22px}
@@ -293,3 +305,18 @@ a { color:inherit; text-decoration:none; }
 .sim-body>p{margin:0 0 14px;font-size:13px;color:var(--muted);line-height:1.5}
 .sim-controls{display:flex;gap:18px;flex-wrap:wrap;align-items:center}
 .sim-many{display:flex;gap:10px;align-items:center}
+.team-name-form{display:flex;gap:10px;align-items:center;max-width:560px}
+.team-name-form input{flex:1;border:1px solid var(--line);background:var(--surface-2);border-radius:10px;min-height:42px;padding:0 13px;color:var(--ink);font:700 13px var(--font-display);outline:0}
+.team-name-form input:focus{border-color:var(--accent)}
+.settings-help{display:block;margin-top:8px;color:var(--muted);font-size:10px}
+
+/* Campo vertical de Mi plantilla */
+.vertical-pitch{aspect-ratio:68/105;max-width:560px;width:min(560px,100%);background-image:url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2068%20105%27%20preserveAspectRatio=%27none%27%3E%3Cg%20fill=%27none%27%20stroke=%27%23ffffff%27%20stroke-opacity=%270.30%27%20stroke-width=%270.45%27%3E%3Crect%20x=%272%27%20y=%272%27%20width=%2764%27%20height=%27101%27%20rx=%272%27/%3E%3Cline%20x1=%272%27%20y1=%2752.5%27%20x2=%2766%27%20y2=%2752.5%27/%3E%3Ccircle%20cx=%2734%27%20cy=%2752.5%27%20r=%279.15%27/%3E%3Crect%20x=%2713.84%27%20y=%272%27%20width=%2740.32%27%20height=%2716.5%27/%3E%3Crect%20x=%2724.84%27%20y=%272%27%20width=%2718.32%27%20height=%275.5%27/%3E%3Cpath%20d=%27M28.76%2018.5%20A9.15%209.15%200%200%200%2039.24%2018.5%27/%3E%3Crect%20x=%2713.84%27%20y=%2786.5%27%20width=%2740.32%27%20height=%2716.5%27/%3E%3Crect%20x=%2724.84%27%20y=%2797.5%27%20width=%2718.32%27%20height=%275.5%27/%3E%3Cpath%20d=%27M28.76%2086.5%20A9.15%209.15%200%200%201%2039.24%2086.5%27/%3E%3C/g%3E%3Cg%20fill=%27%23ffffff%27%20fill-opacity=%270.30%27%3E%3Ccircle%20cx=%2734%27%20cy=%2752.5%27%20r=%270.6%27/%3E%3Ccircle%20cx=%2734%27%20cy=%2711%27%20r=%270.6%27/%3E%3Ccircle%20cx=%2734%27%20cy=%2794%27%20r=%270.6%27/%3E%3C/g%3E%3C/svg%3E"),linear-gradient(180deg,rgba(255,255,255,.05) 50%,transparent 50%),linear-gradient(180deg,#23663f,#154930);background-size:100% 100%,100% 12.5%,100% 100%;background-repeat:no-repeat,repeat,no-repeat}
+.vertical-pitch .pitch-player strong{max-width:98px;white-space:nowrap}
+
+/* Retratos: cara limpia sobre fondo transparente; sin foto, iniciales */
+.player-avatar.has-photo{background:transparent!important;box-shadow:0 3px 8px rgba(0,0,0,.25)}
+.player-avatar .avatar-photo{transform:translateY(-18%) scale(1.38);transform-origin:center 22%}
+.player-photo .avatar-photo,.player-photo img{transform:translateY(-12%) scale(1.26);transform-origin:center 22%}
+.avatar-initials{position:relative;z-index:1;font:800 11px var(--font-display);letter-spacing:.04em}
+.player-avatar.small .avatar-initials{font-size:8px}

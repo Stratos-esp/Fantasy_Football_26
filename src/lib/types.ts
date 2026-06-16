@@ -139,6 +139,11 @@ export type LineupState = {
   bench: string[];
 };
 
+export type RoundResult = {
+  number: number;
+  memberPoints: { memberId: string; points: number }[];
+};
+
 export type LeagueState = {
   user: { id: string; username: string; displayName: string };
   league: {
@@ -171,6 +176,7 @@ export type LeagueState = {
       starter: boolean;
     }>;
   } | null;
+  roundResults: RoundResult[];
   activity: ActivityItem[];
   notifications: NotificationItem[];
   unreadCount: number;

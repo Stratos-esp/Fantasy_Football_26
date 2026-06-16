@@ -99,6 +99,8 @@ export function SettingsView({ state, act, notify, theme, setTheme }: { state: L
   const [saved, setSaved] = useState(false);
   const [resetText, setResetText] = useState("");
   const [resetting, setResetting] = useState(false);
+  const [teamName, setTeamName] = useState(state.myMember.teamName);
+  const [savingTeam, setSavingTeam] = useState(false);
   const isAdmin = state.league.isAdmin;
 
   function update<K extends keyof LeagueSettings>(key: K, value: LeagueSettings[K]) {
@@ -130,6 +132,18 @@ export function SettingsView({ state, act, notify, theme, setTheme }: { state: L
     if (ok) notify("Liga reiniciada: nuevas plantillas aleatorias para todos.");
   }
 
+  async function saveTeamName() {
+    const next = teamName.trim().replace(/\s+/g, " ");
+    if (next.length < 3 || next.length > 32) {
+      notify("El nombre del equipo debe tener entre 3 y 32 caracteres.", "error");
+      return;
+    }
+    setSavingTeam(true);
+    const ok = await act(`/api/league/${state.league.id}/member`, { teamName: next }, "PUT");
+    setSavingTeam(false);
+    if (ok) notify("Nombre de equipo actualizado.");
+  }
+
   const themes: [string, string][] = [["stratos", "Verde"], ["classic", "Comunio clásico"], ["midnight", "Medianoche"], ["sand", "Arena"]];
   const marketRows: [keyof LeagueSettings["market"], string, string][] = [
     ["bids", "Pujas", "Subastas diarias con ofertas ocultas"],
@@ -151,6 +165,18 @@ export function SettingsView({ state, act, notify, theme, setTheme }: { state: L
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="settings-section">
+          <span className="kicker">MI EQUIPO</span>
+          <h2>Nombre del equipo</h2>
+          <div className="team-name-form">
+            <input value={teamName} onChange={(event) => setTeamName(event.target.value)} maxLength={32} placeholder="Nombre de tu equipo" />
+            <button className="button button-small" disabled={savingTeam || teamName.trim() === state.myMember.teamName} onClick={saveTeamName}>
+              {savingTeam ? "Guardando..." : "Guardar nombre"}
+            </button>
+          </div>
+          <small className="settings-help">Cada miembro puede cambiar su propio nombre de equipo. Debe ser único dentro de la liga.</small>
         </div>
 
         <div className="settings-section">
