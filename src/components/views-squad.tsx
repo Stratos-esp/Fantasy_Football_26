@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Check, Crown, Sparkles, X } from "lucide-react";
-import { money, nameAndSurname, pitchCoordinates, positionOrder } from "@/lib/client";
+import { ArrowDown, ArrowUp, Check, Crown, LockKeyhole, Plus, Sparkles, X } from "lucide-react";
+import { money, moneyInput, nameAndSurname, pitchCoordinates, positionOrder } from "@/lib/client";
 import { formations, type LeagueState, type SquadEntry } from "@/lib/types";
 import type { Notify } from "@/components/fantasy-app";
 import { PlayerAvatar, PositionTag, TeamBadge } from "@/components/ui";
@@ -34,49 +34,80 @@ function autofill(squad: SquadEntry[], formation: string) {
   return { starters, bench };
 }
 
+// Posición que ocupa cada hueco del campo, en el mismo orden que pitchCoordinates.
+function slotPositionList(formation: string): string[] {
+  const shape = formations[formation] ?? formations["4-4-2"];
+  return ["POR", ...Array(shape.DEF).fill("DEF"), ...Array(shape.MED).fill("MED"), ...Array(shape.DEL).fill("DEL")];
+}
+
+// Reparte los titulares por líneas según la formación. Los jugadores que ya no
+// están en la plantilla (vendidos, robados por cláusula...) dejan su hueco
+// vacío en lugar de hacer desaparecer la posición.
+function buildSlots(formation: string, starterIds: string[], playersById: Map<string, SquadEntry>): (string | null)[] {
+  const shape = formations[formation] ?? formations["4-4-2"];
+  const lines: [string, number][] = [["POR", 1], ["DEF", shape.DEF], ["MED", shape.MED], ["DEL", shape.DEL]];
+  const byPos: Record<string, string[]> = { POR: [], DEF: [], MED: [], DEL: [] };
+  for (const id of starterIds) {
+    const player = playersById.get(id);
+    if (player) byPos[player.position]?.push(id);
+  }
+  const slots: (string | null)[] = [];
+  for (const [pos, n] of lines) {
+    for (let i = 0; i < n; i += 1) slots.push(byPos[pos][i] ?? null);
+  }
+  return slots;
+}
+
 export function SquadView({ state, act, notify }: { state: LeagueState; act: Act; notify: Notify }) {
   const settings = state.league.settings;
   const playersById = useMemo(() => new Map(state.squad.map((p) => [p.id, p])), [state.squad]);
   const [formation, setFormation] = useState(state.lineup.formation);
-  const [starters, setStarters] = useState<string[]>(state.lineup.starters);
+  const [slots, setSlots] = useState<(string | null)[]>(() => buildSlots(state.lineup.formation, state.lineup.starters, playersById));
   const [bench, setBench] = useState<string[]>(state.lineup.bench);
   const [captain, setCaptain] = useState<string | null>(state.lineup.captainPlayerId);
   const [dirty, setDirty] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [clauseId, setClauseId] = useState<string | null>(null);
+  const [clauseAmount, setClauseAmount] = useState("");
+  const [clauseBusy, setClauseBusy] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!dirty) {
       setFormation(state.lineup.formation);
-      setStarters(state.lineup.starters);
+      setSlots(buildSlots(state.lineup.formation, state.lineup.starters, playersById));
       setBench(state.lineup.bench);
       setCaptain(state.lineup.captainPlayerId);
     }
-  }, [state.lineup, dirty]);
+  }, [state.lineup, dirty, playersById]);
 
   const coordinates = pitchCoordinates(formation, "vertical");
-  const starterPlayers = starters.map((id) => playersById.get(id));
-  const valid = starters.length === 11 && starterPlayers.every(Boolean);
+  const slotPositions = useMemo(() => slotPositionList(formation), [formation]);
+  const starterIds = slots.filter((id): id is string => Boolean(id));
+  const valid = slots.length === 11 && slots.every((id) => id !== null && playersById.has(id));
 
   function changeFormation(next: string) {
     const filled = autofill(state.squad, next);
     setFormation(next);
-    setStarters(filled.starters);
+    setSlots(buildSlots(next, filled.starters, playersById));
     setBench(filled.bench.slice(0, settings.benchSlots));
-    if (captain && !filled.starters.includes(captain)) setCaptain(filled.starters[1] ?? null);
+    if (captain && !filled.starters.includes(captain)) setCaptain(filled.starters[0] ?? null);
     setDirty(true);
   }
 
-  function swap(starterId: string, replacementId: string) {
-    setStarters((current) => current.map((id) => (id === starterId ? replacementId : id)));
+  // Coloca un jugador en un hueco concreto del campo.
+  function assignSlot(slotIndex: number, playerId: string) {
+    const prev = slots[slotIndex];
+    setSlots((current) => current.map((id, i) => (i === slotIndex ? playerId : id === playerId ? null : id)));
     setBench((current) => {
-      const without = current.filter((id) => id !== replacementId);
-      return [...without, starterId].slice(0, settings.benchSlots);
+      let next = current.filter((id) => id !== playerId);
+      if (prev && playersById.has(prev) && !next.includes(prev)) next = [...next, prev];
+      return next.slice(0, settings.benchSlots);
     });
-    if (captain === starterId) setCaptain(replacementId);
+    if (captain === prev) setCaptain(playerId);
     setDirty(true);
-    setSelected(null);
+    setSelectedSlot(null);
   }
 
   function moveBench(id: string, direction: -1 | 1) {
@@ -94,15 +125,32 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
   async function save() {
     if (!valid) { notify("Completa los 11 titulares antes de guardar.", "error"); return; }
     setSaving(true);
-    const ok = await act(`/api/league/${state.league.id}/lineup`, { formation, starters, bench, captainPlayerId: settings.captain ? captain : null }, "PUT");
+    const cleanBench = bench.filter((id) => playersById.has(id));
+    const ok = await act(`/api/league/${state.league.id}/lineup`, { formation, starters: starterIds, bench: cleanBench, captainPlayerId: settings.captain ? captain : null }, "PUT");
     setSaving(false);
     if (ok) { setDirty(false); notify("Alineación guardada."); }
   }
 
-  const selectedPlayer = selected ? playersById.get(selected) : null;
-  const candidates = selectedPlayer
-    ? state.squad.filter((p) => p.position === selectedPlayer.position && !starters.includes(p.id))
+  async function confirmClause() {
+    if (!clauseId) return;
+    const value = moneyInput(clauseAmount);
+    if (!value) { notify("Indica cuánto quieres invertir en millones.", "error"); return; }
+    if (value > state.myMember.budget) { notify("No tienes saldo suficiente para esa inversión.", "error"); return; }
+    setClauseBusy(true);
+    const ok = await act(`/api/league/${state.league.id}/market`, { action: "increaseClause", playerId: clauseId, amount: value });
+    setClauseBusy(false);
+    if (ok) { notify("Cláusula aumentada."); setClauseId(null); setClauseAmount(""); }
+  }
+
+  const selectedPos = selectedSlot !== null ? slotPositions[selectedSlot] : null;
+  const selectedCurrentId = selectedSlot !== null ? slots[selectedSlot] : null;
+  const selectedCurrent = selectedCurrentId ? playersById.get(selectedCurrentId) : null;
+  const candidates = selectedPos
+    ? state.squad.filter((p) => p.position === selectedPos && !slots.includes(p.id))
     : [];
+
+  const clausePlayer = clauseId ? playersById.get(clauseId) : null;
+  const clauseInvestment = moneyInput(clauseAmount);
 
   return (
     <div className="squad-layout">
@@ -117,20 +165,30 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
           </div>
         </div>
         <div className="pitch full-pitch vertical-pitch">
-          {starters.map((id, index) => {
-            const player = playersById.get(id);
-            if (!player) return null;
+          {slots.map((id, index) => {
+            const player = id ? playersById.get(id) : undefined;
+            const coordinate = coordinates[index];
             return (
-              <button key={id} className="pitch-player" style={{ left: `${coordinates[index]?.left ?? 50}%`, top: `${coordinates[index]?.top ?? 50}%` }} onClick={() => setSelected(id)}>
-                <PlayerAvatar player={player} />
-                {settings.captain && id === captain && <Crown className="captain-crown" />}
-                <strong><TeamBadge player={player} />{nameAndSurname(player.name)}</strong>
-                <span>{money(player.value)}</span>
+              <button key={index} className={`pitch-player ${player ? "" : "empty"}`} style={{ left: `${coordinate?.left ?? 50}%`, top: `${coordinate?.top ?? 50}%` }} onClick={() => setSelectedSlot(index)}>
+                {player ? (
+                  <>
+                    <PlayerAvatar player={player} />
+                    {settings.captain && id === captain && <Crown className="captain-crown" />}
+                    <strong><TeamBadge player={player} />{nameAndSurname(player.name)}</strong>
+                    <span>{money(player.value)}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="empty-slot"><Plus /></span>
+                    <strong>{slotPositions[index]}</strong>
+                    <span>Vacío</span>
+                  </>
+                )}
               </button>
             );
           })}
         </div>
-        <div className="squad-hint"><Sparkles /> Toca un titular para cambiarlo{settings.captain ? " o nombrarlo capitán" : ""}. {settings.bench ? "El banquillo entra automáticamente si un titular no juega." : ""}</div>
+        <div className="squad-hint"><Sparkles /> Toca un titular para cambiarlo{settings.captain ? " o nombrarlo capitán" : ""}. Si un hueco queda vacío (por una venta o cláusula), tócalo para asignar otro jugador.</div>
         {settings.bench && (
           <div className="bench-strip">
             <span className="kicker">BANQUILLO ({bench.length}/{settings.benchSlots})</span>
@@ -159,7 +217,7 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
       <aside className="panel squad-list">
         <div className="panel-head"><div><span className="kicker">CONVOCATORIA</span><h2>Jugadores</h2></div><span className="counter">{state.squad.length}</span></div>
         {state.squad.slice().sort((a, b) => positionOrder[a.position] - positionOrder[b.position] || b.value - a.value).map((player) => {
-          const isStarter = starters.includes(player.id);
+          const isStarter = starterIds.includes(player.id);
           const isBench = bench.includes(player.id);
           return (
             <button className={`squad-row clickable ${!isStarter && !isBench ? "bench" : ""}`} key={player.id} onClick={() => setDetailId(player.id)}>
@@ -177,21 +235,31 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
         <div className="bench-label">Valor total: {money(state.squad.reduce((sum, p) => sum + p.value, 0))} · Saldo: {money(state.myMember.budget)}</div>
       </aside>
 
-      {selectedPlayer && (
-        <div className="modal-backdrop" onMouseDown={() => setSelected(null)}>
+      {selectedSlot !== null && (
+        <div className="modal-backdrop" onMouseDown={() => setSelectedSlot(null)}>
           <div className="bid-modal" onMouseDown={(event) => event.stopPropagation()}>
-            <button className="modal-close" onClick={() => setSelected(null)}><X /></button>
-            <PlayerAvatar player={selectedPlayer} />
-            <PositionTag position={selectedPlayer.position} />
-            <h2><TeamBadge player={selectedPlayer} />{selectedPlayer.name}</h2>
-            <p>{selectedPlayer.team} · {money(selectedPlayer.value)} · {Math.round(selectedPlayer.seasonPoints)} pts</p>
-            {settings.captain && selected !== captain && (
-              <button className="button full" onClick={() => { setCaptain(selected); setDirty(true); setSelected(null); }}><Crown size={16} /> Hacer capitán (x{settings.captainMultiplier})</button>
+            <button className="modal-close" onClick={() => setSelectedSlot(null)}><X /></button>
+            {selectedCurrent ? (
+              <>
+                <PlayerAvatar player={selectedCurrent} />
+                <PositionTag position={selectedCurrent.position} />
+                <h2><TeamBadge player={selectedCurrent} />{selectedCurrent.name}</h2>
+                <p>{selectedCurrent.team} · {money(selectedCurrent.value)} · {Math.round(selectedCurrent.seasonPoints)} pts</p>
+                {settings.captain && selectedCurrentId !== captain && (
+                  <button className="button full" onClick={() => { setCaptain(selectedCurrentId); setDirty(true); setSelectedSlot(null); }}><Crown size={16} /> Hacer capitán (x{settings.captainMultiplier})</button>
+                )}
+              </>
+            ) : (
+              <>
+                <PositionTag position={selectedPos ?? "MED"} />
+                <h2>Hueco libre</h2>
+                <p>Elige un {selectedPos} para esta posición.</p>
+              </>
             )}
-            {candidates.length > 0 && <label>CAMBIAR POR</label>}
+            {candidates.length > 0 && <label>{selectedCurrent ? "CAMBIAR POR" : "ELEGIR JUGADOR"}</label>}
             <div className="player-select-list">
               {candidates.map((candidate) => (
-                <button key={candidate.id} onClick={() => selected && swap(selected, candidate.id)}>
+                <button key={candidate.id} onClick={() => assignSlot(selectedSlot, candidate.id)}>
                   <PlayerAvatar player={candidate} small />
                   <span><strong><TeamBadge player={candidate} />{candidate.name}</strong><small>{candidate.team} · {Math.round(candidate.seasonPoints)} pts</small></span>
                   <em>{money(candidate.value)}</em>
@@ -203,20 +271,47 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
         </div>
       )}
 
+      {clausePlayer && (
+        <div className="modal-backdrop" onMouseDown={() => setClauseId(null)}>
+          <div className="bid-modal" onMouseDown={(event) => event.stopPropagation()}>
+            <button className="modal-close" onClick={() => setClauseId(null)}><X /></button>
+            <PlayerAvatar player={clausePlayer} />
+            <PositionTag position={clausePlayer.position} />
+            <h2><TeamBadge player={clausePlayer} />{clausePlayer.name}</h2>
+            <p>{clausePlayer.team} · Valor {money(clausePlayer.value)}</p>
+            <label>INVERTIR (SUBE LA CLÁUSULA 1:1)</label>
+            <div className="money-input">
+              <input autoFocus inputMode="decimal" value={clauseAmount} onChange={(event) => setClauseAmount(event.target.value)} placeholder="0,0" />
+              <span>M€</span>
+            </div>
+            <small>Cláusula actual: {clausePlayer.clauseValue !== null ? money(clausePlayer.clauseValue) : "—"}{clauseInvestment ? ` → nueva ${money((clausePlayer.clauseValue ?? clausePlayer.value) + clauseInvestment)}` : ""}</small>
+            <small>Saldo disponible: {money(state.myMember.budget)}</small>
+            <button className="button full" disabled={clauseBusy} onClick={confirmClause}><LockKeyhole size={16} /> Subir cláusula</button>
+          </div>
+        </div>
+      )}
+
       {detailId && (
         <PlayerModal
           leagueId={state.league.id}
           playerId={detailId}
-          actions={state.squad.length > 11 ? [{
-            label: "Vender al mercado",
-            tone: "ghost",
-            onClick: async () => {
-              const player = playersById.get(detailId);
-              if (player && window.confirm(`¿Vender a ${player.name} al mercado por ${money(player.value)}?`)) {
-                if (await act(`/api/league/${state.league.id}/market`, { action: "sellToMarket", playerId: detailId })) { notify("Jugador vendido al mercado."); setDetailId(null); }
-              }
-            },
-          }] : []}
+          actions={[
+            ...(settings.market.clauses ? [{
+              label: "Subir cláusula",
+              tone: "ghost" as const,
+              onClick: () => { setClauseId(detailId); setClauseAmount(""); setDetailId(null); },
+            }] : []),
+            ...(state.squad.length > 11 ? [{
+              label: "Vender al mercado",
+              tone: "ghost" as const,
+              onClick: async () => {
+                const player = playersById.get(detailId);
+                if (player && window.confirm(`¿Vender a ${player.name} al mercado por ${money(player.value)}?`)) {
+                  if (await act(`/api/league/${state.league.id}/market`, { action: "sellToMarket", playerId: detailId })) { notify("Jugador vendido al mercado."); setDetailId(null); }
+                }
+              },
+            }] : []),
+          ]}
           onClose={() => setDetailId(null)}
         />
       )}

@@ -5,6 +5,7 @@ export type MarketSettings = {
   fixedPrice: boolean;
   clauses: boolean;
   directTransfers: boolean;
+  visibleBids: boolean;
 };
 
 export type LeagueSettings = {
@@ -24,7 +25,7 @@ export const defaultLeagueSettings: LeagueSettings = {
   benchSlots: 4,
   marketSize: 8,
   clauseMultiplier: 1.4,
-  market: { bids: true, fixedPrice: true, clauses: true, directTransfers: true },
+  market: { bids: true, fixedPrice: true, clauses: true, directTransfers: true, visibleBids: true },
 };
 
 export function parseLeagueSettings(raw: unknown): LeagueSettings {
@@ -44,6 +45,7 @@ export function parseLeagueSettings(raw: unknown): LeagueSettings {
       fixedPrice: bool(market.fixedPrice, true),
       clauses: bool(market.clauses, true),
       directTransfers: bool(market.directTransfers, true),
+      visibleBids: bool(market.visibleBids, true),
     },
   };
 }

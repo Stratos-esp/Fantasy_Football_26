@@ -577,6 +577,23 @@ export async function executeTransfer(db: Db, args: TransferArgs) {
   });
   if (error) throw new ServiceError(cleanPgError(error.message), 400);
 
+  // El jugador cambia de dueño: cancela cualquier otro anuncio abierto suyo
+  // (p. ej. una venta a precio fijo) y las ofertas directas pendientes, para
+  // que no quede en el mercado un jugador que ya está en una plantilla.
+  await db
+    .from("fantasy_market_listings")
+    .update({ status: "cancelled", resolved_at: new Date().toISOString() })
+    .eq("league_id", args.league.id)
+    .eq("player_id", args.playerId)
+    .eq("status", "open")
+    .neq("id", args.listingId ?? "00000000-0000-0000-0000-000000000000");
+  await db
+    .from("fantasy_direct_offers")
+    .update({ status: "cancelled", resolved_at: new Date().toISOString() })
+    .eq("league_id", args.league.id)
+    .eq("player_id", args.playerId)
+    .eq("status", "pending");
+
   // Ajustes no críticos fuera de la transacción de dinero.
   if (args.toMemberId) await addToCurrentBench(db, args.league, args.toMemberId, args.playerId);
   await audit(db, args.league.id, args.actorUserId, `transfer_${args.kind}`, args.detail);

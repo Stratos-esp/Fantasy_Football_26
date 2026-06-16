@@ -214,6 +214,11 @@ export function SettingsView({ state, act, notify, theme, setTheme }: { state: L
               <Toggle checked={settings.market[key]} disabled={!isAdmin} onChange={() => updateMarket(key)} label={`Activar ${title}`} />
             </SettingRow>
           ))}
+          {settings.market.bids && (
+            <SettingRow title="Pujas visibles" text="Muestra cuántas pujas ha recibido cada jugador del mercado">
+              <Toggle checked={settings.market.visibleBids} disabled={!isAdmin} onChange={() => updateMarket("visibleBids")} label="Pujas visibles" />
+            </SettingRow>
+          )}
           <SettingRow title="Tamaño del mercado" text="Jugadores en subasta simultánea">
             <div className="stepper">
               <button disabled={!isAdmin} onClick={() => update("marketSize", Math.max(4, settings.marketSize - 1))}><Minus /></button>

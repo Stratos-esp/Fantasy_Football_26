@@ -130,7 +130,7 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
                 <div className="player-stats">
                   <span><small>{listing.kind === "bid" ? "PUJA MÍN." : "PRECIO"}</small><strong>{money(listing.askingPrice)}</strong></span>
                   <span><small>PUNTOS</small><strong>{Math.round(listing.player.seasonPoints)}</strong></span>
-                  <span><small>{listing.kind === "bid" ? "PUJAS" : "VENDE"}</small><strong>{listing.kind === "bid" ? listing.bidCount : (listing.sellerName ?? "Liga")}</strong></span>
+                  <span><small>{listing.kind === "bid" ? "PUJAS" : "VENDE"}</small><strong>{listing.kind === "bid" ? (state.league.settings.market.visibleBids ? listing.bidCount : <LockKeyhole size={13} />) : (listing.sellerName ?? "Liga")}</strong></span>
                 </div>
                 <div className="market-card-cta">
                   {listing.kind === "bid" ? (

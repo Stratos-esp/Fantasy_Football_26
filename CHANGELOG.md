@@ -38,7 +38,16 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   mientras se procesa y una confirmación con visto bueno al terminar.
 - Nueva opción para invertir saldo y aumentar la cláusula de tus jugadores
   (relación 1:1): el dinero invertido se descuenta de tu saldo y blindar a un
-  jugador encarece su cláusula para los rivales.
+  jugador encarece su cláusula para los rivales. Disponible desde el mercado y
+  también desde Mi plantilla al seleccionar un jugador.
+- En Mi plantilla, cuando un titular sale del equipo (venta, cláusula…) su
+  hueco queda vacío pero seleccionable para colocar a otro jugador, en vez de
+  desaparecer.
+- La pestaña Jornada muestra mucha más información: posición en la jornada y en
+  la general, puntos totales, mejor jornada, líder de la jornada, puntos del
+  capitán, evolución por jornada y desglose de titulares y banquillo.
+- Nuevo ajuste de liga para mostrar u ocultar el número de pujas de cada
+  jugador del mercado.
 
 ### Cambiado
 
@@ -66,6 +75,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 - La Clasificación ya no abre automáticamente una ventana emergente que no se
   podía cerrar; los resultados por jornada se consultan ahora desde la propia
   vista.
+- Un jugador ya no puede aparecer en el mercado si ya pertenece a una plantilla:
+  al cambiar de dueño se cancelan los anuncios y ofertas pendientes que tuviera.
+- El logo de Stratos League en la barra lateral lleva a Inicio en lugar de salir
+  de la aplicación.
 
 ## 2026-06-15
 

@@ -32,7 +32,7 @@ a { color:inherit; text-decoration:none; }
 .wrap { width:min(1180px, calc(100% - 40px)); margin-inline:auto; }
 .brand { display:inline-flex; align-items:center; gap:11px; font-family:var(--font-display), sans-serif; font-size:13px; letter-spacing:.07em; font-weight:700; white-space:nowrap; }
 .brand strong { color:var(--accent); }
-.brand-logo-link { flex:0 1 auto; min-width:0; }
+.brand-logo-link { flex:0 1 auto; min-width:0; border:0; background:transparent; padding:0; cursor:pointer; }
 .brand-logo { height:34px; width:auto; max-width:100%; display:block; }
 .brand-mark { width:31px; height:31px; display:flex; align-items:flex-end; gap:2px; padding:5px; background:var(--primary); border-radius:9px; transform:skew(-7deg); }
 .brand-mark i { display:block; width:6px; background:var(--accent); border-radius:2px 2px 1px 1px; }
@@ -572,3 +572,38 @@ a { color:inherit; text-decoration:none; }
 .spark-leg i{width:15px;height:3px;border-radius:2px;display:inline-block}
 .spark-leg.prev i{background:var(--muted);opacity:.55}
 .spark-season-divider{stroke:var(--ink);stroke-opacity:.20;stroke-width:1;stroke-dasharray:2 3;vector-effect:non-scaling-stroke}
+
+/* Hueco vacío y seleccionable en el campo (tras una venta o cláusula) */
+.pitch-player.empty{cursor:pointer}
+.pitch-player .empty-slot{display:grid;place-items:center;width:clamp(30px,7.3cqi,64px);height:clamp(30px,7.3cqi,64px);border-radius:50%;border:2px dashed rgba(255,255,255,.65);background:rgba(8,25,16,.32);color:rgba(255,255,255,.9)}
+.vertical-pitch .pitch-player .empty-slot{width:clamp(44px,11.5cqi,76px);height:clamp(44px,11.5cqi,76px)}
+.pitch-player .empty-slot svg{width:46%;height:46%}
+.pitch-player.empty:hover .empty-slot{border-color:var(--accent);color:var(--accent)}
+.pitch-player.empty strong{opacity:.9}
+
+/* ============================================================
+   Jornada: vista enriquecida
+   ============================================================ */
+.matchday-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line)}
+.matchday-stats>div{background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:5px}
+.matchday-stats span{font-size:8px;letter-spacing:.1em;color:var(--muted);font-weight:900}
+.matchday-stats strong{font:700 20px var(--font-display)}
+.matchday-stats strong small{font-size:11px;color:var(--muted);font-weight:600}
+.matchday-stats .lead-name{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fixture-list article.mine{background:color-mix(in srgb,var(--accent) 12%,transparent);border-radius:9px}
+.fixture-list em{display:flex;flex-direction:column;align-items:flex-end;gap:1px;color:var(--ink);font-size:11px}
+.fixture-list em small{font-size:8px;font-weight:800}
+.fixture-list em small.positive{color:var(--positive)}
+.fixture-list em small.negative{color:var(--danger)}
+.matchday-evolution{padding:14px 18px 18px;border-top:1px solid var(--line)}
+.matchday-evolution .kicker{display:block;margin-bottom:10px}
+.round-team .round-team-sub{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0 7px;margin-top:6px;border-top:1px solid var(--line)}
+.round-team .round-team-sub span{font-size:9px;letter-spacing:.1em;font-weight:900;color:var(--positive)}
+.round-team .round-team-sub strong{font-size:9px;color:var(--muted);font-weight:700}
+.round-team>div.scored{background:color-mix(in srgb,var(--positive) 7%,transparent);border-radius:7px}
+.round-team em.positive{color:var(--positive)}
+.round-team em.negative{color:var(--danger)}
+.captain-inline{width:11px;height:11px;color:#d8a600;fill:#d8a600;margin-left:4px;vertical-align:-1px}
+@media (max-width: 760px){
+  .matchday-stats{grid-template-columns:1fr 1fr}
+}

@@ -158,7 +158,7 @@ export function FantasyApp() {
   return (
     <div className="app-shell">
       <aside className={`sidebar ${mobileNav ? "mobile-open" : ""}`}>
-        <div className="sidebar-top"><a href="/" className="brand brand-logo-link" aria-label="Stratos League"><Image className="brand-logo" src="/stratos-league.png" alt="Stratos League" width={937} height={259} priority /></a><button className="mobile-close" onClick={() => setMobileNav(false)}><X /></button></div>
+        <div className="sidebar-top"><button type="button" className="brand brand-logo-link" aria-label="Ir a Inicio" onClick={() => goTo("inicio")}><Image className="brand-logo" src="/stratos-league.png" alt="Stratos League" width={937} height={259} priority /></button><button className="mobile-close" onClick={() => setMobileNav(false)}><X /></button></div>
         <div className="league-picker-wrap">
           <button className="league-picker" onClick={() => setLeagueMenu((open) => !open)}>
             <span className="league-avatar">{state.league.name.slice(0, 2).toUpperCase()}</span>
