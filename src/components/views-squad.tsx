@@ -10,6 +10,16 @@ import { PlayerModal } from "@/components/player-modal";
 
 type Act = (url: string, body?: unknown, method?: "POST" | "PUT") => Promise<boolean>;
 
+// Forma reciente: puntos de las últimas jornadas como chips de color.
+function FormStrip({ points }: { points?: number[] }) {
+  if (!points || points.length === 0) return null;
+  return (
+    <span className="form-strip" title="Puntos de las últimas jornadas">
+      {points.map((p, i) => <i key={i} className={p >= 0 ? "pos" : "neg"}>{Math.round(p)}</i>)}
+    </span>
+  );
+}
+
 function autofill(squad: SquadEntry[], formation: string) {
   const shape = formations[formation];
   const sorted = [...squad].sort((a, b) => b.seasonPoints - a.seasonPoints || b.value - a.value);
@@ -158,6 +168,7 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
               <span>
                 <strong><TeamBadge player={player} />{player.name}{settings.captain && player.id === captain && <Crown />}</strong>
                 <small>{player.position} · {player.team} · {isStarter ? "Titular" : isBench ? "Suplente" : "Sin convocar"}</small>
+                <FormStrip points={player.last5} />
               </span>
               <div><b>{Math.round(player.seasonPoints)}</b><small>pts</small></div>
             </button>

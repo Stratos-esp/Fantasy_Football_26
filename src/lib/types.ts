@@ -70,6 +70,7 @@ export type ApiPlayer = {
   value: number;
   seasonPoints: number;
   lastPoints: number | null;
+  last5?: number[];
 };
 
 export type SquadEntry = ApiPlayer & {

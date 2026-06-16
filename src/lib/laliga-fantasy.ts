@@ -115,3 +115,70 @@ export async function currentWeek(): Promise<number> {
   const data = (await authedFetch(`/api/v3/week/current`)) as { weekNumber?: number };
   return data.weekNumber ?? 38;
 }
+
+// --- Ficha individual: puntos por jornada, estadísticas y valor de mercado real ---
+
+export type PlayerWeekStat = { week: number; points: number };
+export type PlayerStatTotals = {
+  matches: number; goals: number; assists: number; minutes: number; saves: number; yellow: number; red: number;
+};
+export type PlayerProfile = {
+  externalId: number;
+  name: string;
+  teamName: string | null;
+  position: Position | null;
+  marketValue: number;
+  photo: string | null;
+  weekStats: PlayerWeekStat[];
+  totals: PlayerStatTotals;
+};
+
+type RawPlayerStat = { stats?: Record<string, unknown[]>; weekNumber: number; totalPoints?: number };
+type RawPlayerFull = RawPlayer & {
+  marketValue?: number;
+  team?: { name?: string; mainName?: string } | null;
+  playerStats?: RawPlayerStat[];
+};
+
+export async function fetchPlayerProfile(externalId: number): Promise<PlayerProfile> {
+  const raw = (await authedFetch(`/api/v3/player/${externalId}`)) as RawPlayerFull;
+  const playerStats = Array.isArray(raw.playerStats) ? raw.playerStats : [];
+  const weekStats = playerStats
+    .map((s) => ({ week: s.weekNumber, points: Number(s.totalPoints ?? 0) }))
+    .sort((a, b) => a.week - b.week);
+  const sum = (key: string) =>
+    playerStats.reduce((acc, s) => acc + (Array.isArray(s.stats?.[key]) ? Number(s.stats![key][0] ?? 0) : 0), 0);
+  const matches = playerStats.filter(
+    (s) => Array.isArray(s.stats?.mins_played) && Number(s.stats!.mins_played[0]) > 0,
+  ).length;
+  return {
+    externalId: raw.id,
+    name: raw.nickname?.trim() || raw.name,
+    teamName: raw.team?.name ?? raw.team?.mainName ?? null,
+    position: POSITION_BY_ID[raw.positionId] ?? null,
+    marketValue: Number(raw.marketValue ?? 0),
+    photo: photoFrom(raw),
+    weekStats,
+    totals: {
+      matches,
+      goals: sum("goals"),
+      assists: sum("goal_assist"),
+      minutes: sum("mins_played"),
+      saves: sum("saves"),
+      yellow: sum("yellow_card"),
+      red: sum("red_card"),
+    },
+  };
+}
+
+// Serie histórica de valor de mercado (submuestreada a ~60 puntos para el gráfico).
+export async function fetchMarketValues(externalId: number): Promise<{ date: string; value: number }[]> {
+  const raw = (await authedFetch(`/api/v3/player/${externalId}/market-value`)) as { date: string; marketValue: number }[];
+  const series = (Array.isArray(raw) ? raw : []).map((r) => ({ date: r.date, value: Number(r.marketValue) }));
+  if (series.length <= 60) return series;
+  const step = Math.ceil(series.length / 60);
+  const out = series.filter((_, i) => i % step === 0);
+  const last = series[series.length - 1];
+  if (out[out.length - 1]?.date !== last.date) out.push(last);
+  return out;
+}

@@ -1106,6 +1106,29 @@ export async function getLeagueState(db: Db, league: LeagueRow, member: MemberRo
   const mySquad = squads.filter((row) => row.league_member_id === member.id);
   const rivalSquads = squads.filter((row) => row.league_member_id !== member.id);
 
+  // Forma: puntos de las últimas 5 jornadas reales de cada jugador de mi plantilla.
+  const last5ByPlayer = new Map<string, number[]>();
+  const mySquadIds = mySquad.map((row) => row.player_id as string);
+  if (mySquadIds.length > 0) {
+    const { data: wpMax } = await db.from("fantasy_player_week_points").select("week").order("week", { ascending: false }).limit(1).maybeSingle();
+    const maxWeek = Number(wpMax?.week ?? 0);
+    if (maxWeek > 0) {
+      const { data: wpRows } = await db
+        .from("fantasy_player_week_points")
+        .select("player_id, week, points")
+        .gte("week", Math.max(1, maxWeek - 4))
+        .lte("week", maxWeek)
+        .in("player_id", mySquadIds);
+      const grouped = new Map<string, { week: number; points: number }[]>();
+      for (const r of wpRows ?? []) {
+        const arr = grouped.get(r.player_id as string) ?? [];
+        arr.push({ week: Number(r.week), points: Number(r.points) });
+        grouped.set(r.player_id as string, arr);
+      }
+      for (const [pid, arr] of grouped) last5ByPlayer.set(pid, arr.sort((a, b) => a.week - b.week).map((x) => x.points));
+    }
+  }
+
   return {
     user,
     league: {
@@ -1139,6 +1162,7 @@ export async function getLeagueState(db: Db, league: LeagueRow, member: MemberRo
         ...player(row.player_id as string),
         purchasePrice: Number(row.purchase_price),
         clauseValue: row.clause_value === null ? null : Number(row.clause_value),
+        last5: last5ByPlayer.get(row.player_id as string) ?? [],
       }))
       .sort((a, b) => ["POR", "DEF", "MED", "DEL"].indexOf(a.position) - ["POR", "DEF", "MED", "DEL"].indexOf(b.position) || b.value - a.value),
     lineup,

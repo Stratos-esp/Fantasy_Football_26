@@ -25,7 +25,7 @@ export type PlayerDetail = {
 
 export type PlayerAction = { label: string; onClick: () => void; tone?: "primary" | "danger" | "ghost"; disabled?: boolean };
 
-function Sparkline({ points }: { points: number[] }) {
+export function Sparkline({ points }: { points: number[] }) {
   if (points.length < 2) return <div className="spark-empty">Aún no hay histórico de precios. Se registrará tras cada jornada.</div>;
   const min = Math.min(...points);
   const max = Math.max(...points);

@@ -19,7 +19,8 @@ export function StandingsView({ state, act, notify }: { state: LeagueState; act:
   const average = members.length > 0 ? Math.round(members.reduce((sum, m) => sum + m.totalPoints, 0) / members.length) : 0;
   const topValue = Math.max(0, ...members.map((m) => m.squadValue));
   const bestRound = Math.max(0, ...members.map((m) => m.lastRoundPoints ?? 0));
-  const selectedRound = state.roundResults.find((round) => round.number === selectedRoundNumber) ?? state.roundResults[0] ?? null;
+  const roundNumber = selectedRoundNumber ?? state.roundResults[0]?.number ?? null;
+  const selectedRound = state.roundResults.find((round) => round.number === roundNumber) ?? null;
   const memberName = (id: string) => members.find((m) => m.id === id);
   const marketUrl = `/api/league/${state.league.id}/market`;
   const selectedRival = members.find((member) => member.id === selectedRivalId && member.id !== state.myMember.id) ?? null;
@@ -55,9 +56,6 @@ export function StandingsView({ state, act, notify }: { state: LeagueState; act:
       <section className="panel standings-panel">
         <div className="panel-head">
           <div><span className="kicker">CLASIFICACION</span><h2>Tabla general</h2></div>
-          <button className="ghost-button" disabled={state.roundResults.length === 0} onClick={() => setSelectedRoundNumber(state.roundResults[0]?.number ?? null)}>
-            <Trophy size={14} /> Ver jornadas
-          </button>
         </div>
         <div className="standings-head"><span>#</span><span>EQUIPO</span><span>JORNADA</span><span>VALOR</span><span>PUNTOS</span></div>
         {members.map((member, index) => (
@@ -96,16 +94,16 @@ export function StandingsView({ state, act, notify }: { state: LeagueState; act:
           <p><span>Jornada actual</span><strong>{state.league.currentMatchday} / {state.league.totalMatchdays}</strong></p>
           <p><span>Miembros</span><strong>{members.length}</strong></p>
         </section>
-      </aside>
-      {selectedRound && (
-        <div className="modal-backdrop" onMouseDown={() => setSelectedRoundNumber(null)}>
-          <div className="bid-modal round-results-modal" onMouseDown={(event) => event.stopPropagation()}>
-            <button className="modal-close" onClick={() => setSelectedRoundNumber(null)}><X /></button>
-            <span className="kicker">RESULTADOS</span>
-            <h2>Jornadas disputadas</h2>
-            <select value={selectedRound.number} onChange={(event) => setSelectedRoundNumber(Number(event.target.value))}>
-              {state.roundResults.map((round) => <option key={round.number} value={round.number}>Jornada {round.number}</option>)}
-            </select>
+        <section className="panel round-results-panel">
+          <div className="panel-head">
+            <div><span className="kicker">RESULTADOS</span><h2>Por jornada</h2></div>
+            {state.roundResults.length > 0 && selectedRound && (
+              <select value={selectedRound.number} onChange={(event) => setSelectedRoundNumber(Number(event.target.value))}>
+                {state.roundResults.map((round) => <option key={round.number} value={round.number}>Jornada {round.number}</option>)}
+              </select>
+            )}
+          </div>
+          {selectedRound ? (
             <div className="round-results-list">
               {selectedRound.memberPoints
                 .slice()
@@ -123,9 +121,11 @@ export function StandingsView({ state, act, notify }: { state: LeagueState; act:
                   );
                 })}
             </div>
-          </div>
-        </div>
-      )}
+          ) : (
+            <div className="empty-mini"><Trophy size={14} /> Aún no se ha disputado ninguna jornada.</div>
+          )}
+        </section>
+      </aside>
       {selectedRival && (
         <div className="modal-backdrop" onMouseDown={() => setSelectedRivalId(null)}>
           <div className="lineup-modal standings-rival-modal" onMouseDown={(event) => event.stopPropagation()}>
