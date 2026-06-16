@@ -73,6 +73,17 @@ export function nameAndSurname(name: string) {
   return `${parts[0]} ${parts[parts.length - 1]}`;
 }
 
+// Reparte `n` jugadores centrados en una línea. El ancho ocupado crece con el
+// número de jugadores (en vez de ocupar siempre todo el campo), así las líneas
+// cortas —p. ej. los 2 delanteros de un 4-4-2— quedan centradas y no en los
+// extremos. `gap` es la separación entre jugadores y `maxSpread` el ancho tope.
+function spreadLine(n: number, center: number, gap: number, maxSpread: number): number[] {
+  if (n <= 1) return [center];
+  const spread = Math.min(maxSpread, gap * (n - 1));
+  const start = center - spread / 2;
+  return Array.from({ length: n }, (_, i) => start + (spread * i) / (n - 1));
+}
+
 export function pitchCoordinates(formation: string, orientation: "horizontal" | "vertical" = "horizontal"): { left: number; top: number }[] {
   const shape = formation.split("-").map(Number);
   const [def, med, del] = shape.length === 3 ? shape : [4, 4, 2];
@@ -85,9 +96,7 @@ export function pitchCoordinates(formation: string, orientation: "horizontal" | 
     ];
     const coordinates: { left: number; top: number }[] = [];
     for (const line of lines) {
-      const n = line.count;
-      for (let i = 0; i < n; i += 1) {
-        const left = n === 1 ? 50 : 14 + (72 * i) / (n - 1);
+      for (const left of spreadLine(line.count, 50, 24, 72)) {
         coordinates.push({ left, top: line.top });
       }
     }
@@ -102,9 +111,7 @@ export function pitchCoordinates(formation: string, orientation: "horizontal" | 
   ];
   const coordinates: { left: number; top: number }[] = [];
   for (const column of columns) {
-    const n = column.count;
-    for (let i = 0; i < n; i += 1) {
-      const top = n === 1 ? 50 : 12 + (76 * i) / (n - 1);
+    for (const top of spreadLine(column.count, 50, 26, 76)) {
       coordinates.push({ left: column.left, top });
     }
   }

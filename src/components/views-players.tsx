@@ -178,7 +178,7 @@ function GlobalPlayerModal({ externalId, onClose }: { externalId: number; onClos
 
             <div className="player-modal-section">
               <span className="kicker">EVOLUCIÓN DEL VALOR DE MERCADO</span>
-              <Sparkline points={detail.marketValues.map((v) => v.value)} />
+              <Sparkline points={detail.marketValues.map((v) => v.value)} dates={detail.marketValues.map((v) => v.date)} />
             </div>
 
             <div className="player-modal-section">

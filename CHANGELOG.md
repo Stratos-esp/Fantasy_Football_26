@@ -25,9 +25,20 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   Ajustes.
 - Modal de rival desde Clasificación para ver alineación, plantilla completa,
   enviar ofertas y pagar cláusulas.
+- La gráfica de evolución del valor de mercado (ficha de jugador) muestra ahora
+  el valor mínimo y máximo del periodo y la fecha de inicio y fin, y es
+  interactiva: al pasar el ratón o tocar la gráfica aparece el valor exacto y la
+  fecha de ese punto.
 
 ### Cambiado
 
+- El mercado se ve mucho mejor en móvil: las subastas pasan a tarjetas
+  horizontales tipo lista (foto, nombre, precio y botón de pujar más claros) en
+  lugar del bloque comprimido anterior.
+- Se aumentaron las proporciones de tamaño en toda la app (tipografías, avatares
+  de las listas y controles) para que todo se lea mejor, sobre todo en móvil.
+- En el 4-4-2 (y demás formaciones) los jugadores de cada línea se reparten
+  centrados: los dos delanteros dejan de quedar pegados a las bandas.
 - Los retratos de jugadores se centran mejor dentro de los avatares circulares.
 - La vista Mi plantilla usa un campo vertical de abajo a arriba para configurar
   la alineación.

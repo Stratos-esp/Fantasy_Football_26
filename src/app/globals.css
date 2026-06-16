@@ -262,8 +262,20 @@ a { color:inherit; text-decoration:none; }
 .player-modal-stats strong.negative{color:var(--danger)}
 .player-modal-section{margin-bottom:20px}
 .player-modal-section .kicker{display:block;margin-bottom:10px}
-.sparkline{width:100%;height:70px;display:block}
-.spark-empty{font-size:11px;color:var(--muted);padding:14px;background:var(--surface-2);border-radius:10px;text-align:center}
+.sparkline-wrap{width:100%}
+.sparkline-plot{position:relative;width:100%;touch-action:none;cursor:crosshair}
+.sparkline{width:100%;height:96px;display:block}
+.spark-cursor{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3;opacity:.6;vector-effect:non-scaling-stroke}
+.spark-axis-y{position:absolute;right:4px;font-size:10px;font-weight:800;color:var(--muted);background:color-mix(in srgb,var(--surface) 78%,transparent);padding:1px 5px;border-radius:5px;pointer-events:none}
+.spark-axis-max{top:0}
+.spark-axis-min{bottom:0}
+.spark-tooltip{position:absolute;top:-6px;transform:translate(-50%,-100%);background:var(--primary);color:#fff;border-radius:8px;padding:5px 9px;display:flex;flex-direction:column;align-items:center;gap:1px;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.22);white-space:nowrap;z-index:2}
+.spark-tooltip:after{content:"";position:absolute;left:50%;bottom:-4px;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--primary);border-bottom:0}
+.spark-tooltip strong{font:700 13px var(--font-display)}
+.spark-tooltip small{font-size:9px;opacity:.8}
+.spark-axis-x{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px;font-size:10px;color:var(--muted)}
+.spark-axis-x .spark-axis-hint{font-size:9px;opacity:.7;font-style:italic}
+.spark-empty{font-size:12px;color:var(--muted);padding:14px;background:var(--surface-2);border-radius:10px;text-align:center}
 .points-bars{display:flex;gap:7px;align-items:flex-end;height:78px;overflow-x:auto;padding-top:6px}
 .points-bar{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;min-width:26px}
 .points-bar i{width:18px;border-radius:4px 4px 0 0;display:block}
@@ -411,4 +423,127 @@ a { color:inherit; text-decoration:none; }
   .hide-sm{display:none}
   .players-head{grid-template-columns:1fr 44px 88px}
   .player-row{grid-template-columns:auto auto 1fr 44px 88px}
+}
+
+/* ============================================================
+   Legibilidad: proporciones de tamaño más visuales (móvil y escritorio)
+   ============================================================ */
+
+/* Avatares de lista más grandes y nítidos */
+.player-avatar.small{width:40px;height:40px;font-size:9px}
+.player-avatar.small .avatar-initials{font-size:9px}
+
+/* Ensanchar las columnas que alojan esos avatares */
+.squad-row{grid-template-columns:44px 46px 1fr 46px}
+.sell-row{grid-template-columns:44px 1fr auto auto}
+.sell-row.with-position{grid-template-columns:44px 46px 1fr auto auto}
+.rival-player-row{grid-template-columns:44px 46px 1fr auto auto}
+.player-select-list button{grid-template-columns:44px 1fr auto}
+.mini-market-list>div{grid-template-columns:44px 1fr auto}
+
+/* Mi plantilla / convocatoria */
+.squad-row strong{font-size:13px}
+.squad-row small{font-size:10.5px}
+.squad-row b{font-size:15px}
+.squad-row>div:last-child small{font-size:9px}
+.squad-row .position-tag{min-width:40px;min-height:26px;font-size:9px}
+.bench-label{font-size:11px;line-height:1.6}
+.bench-chip strong{font-size:12px}
+.bench-chip small{font-size:10px}
+.squad-hint{font-size:11px}
+
+/* Ventas / rivales / operaciones */
+.sell-row strong,.sell-row-id strong,.rival-player-row strong{font-size:13px}
+.sell-row small,.sell-row-id small,.rival-player-row small{font-size:10.5px}
+.sell-row em,.rival-player-row em{font-size:13px}
+.row-actions .ghost-button{min-height:34px;font-size:11px}
+
+/* Selector de cambio de jugador */
+.player-select-list strong{font-size:13px}
+.player-select-list small{font-size:10.5px}
+.player-select-list em{font-size:12px}
+
+/* Cabeceras y contadores */
+.panel-head h2{font-size:16px}
+.counter{font-size:11px}
+
+/* Mercado: resumen y stats */
+.market-summary small{font-size:9px}
+.market-summary strong{font-size:16px}
+.market-summary svg{width:24px}
+.player-stats small{font-size:9px}
+.player-stats strong{font-size:13px}
+.market-card h3{font-size:16px}
+.market-card>p{font-size:11px}
+.tab-help{font-size:12.5px}
+.tabs button{font-size:13px}
+
+/* Base de datos de jugadores */
+.players-head{font-size:11px}
+.player-row-name strong{font-size:13px}
+.player-row-name small{font-size:11px}
+.player-row-pts{font-size:15px}
+.player-row-val{font-size:12px}
+
+/* Clasificación */
+.standings-row span strong{font-size:12px}
+.standings-row span small{font-size:9px}
+.standings-row>b,.standings-row>strong{font-size:14px}
+
+/* Inicio: rankings, mercado mini, actividad */
+.ranking-list strong{font-size:11px}
+.ranking-list small{font-size:9px}
+.mini-market-list strong{font-size:11px}
+.mini-market-list small{font-size:9px}
+.mini-market-list b{font-size:11px}
+
+/* Modal de jugador */
+.player-modal-head h2{font-size:20px}
+.player-modal-stats strong{font-size:16px}
+.points-bar em{font-size:11px}
+.points-bar small{font-size:9px}
+
+@media (max-width: 760px){
+  .app-content{padding:16px 13px 92px}
+
+  /* --- Mercado en móvil: tarjeta horizontal tipo lista --- */
+  .market-grid{grid-template-columns:1fr;gap:11px}
+  .market-card{
+    display:grid;
+    grid-template-columns:auto 1fr auto;
+    grid-template-areas:
+      "time time time"
+      "avatar info action"
+      "stats stats stats"
+      "owner owner owner";
+    align-items:center;column-gap:13px;row-gap:10px;padding:14px 15px;
+  }
+  .market-card.bidding{box-shadow:0 0 0 2px var(--accent),var(--shadow)}
+  .market-card .card-countdown{position:static;grid-area:time;justify-self:start;background:var(--surface-2);color:var(--muted);font-weight:800;font-size:10px}
+  .market-card-top{grid-area:avatar;display:flex;flex-direction:column;align-items:center;gap:5px;align-self:center}
+  .market-card-top .player-avatar{width:56px;height:56px;font-size:13px}
+  .market-card-top>.trend{display:none}
+  .market-card-top>.position-tag{display:inline-grid;margin-left:0;min-width:42px;min-height:26px;font-size:10px}
+  .market-card-id{grid-area:info;display:flex;flex-direction:column;gap:3px;min-width:0}
+  .market-card h3{margin:0;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .market-card>p{margin:0;font-size:12px}
+  .player-stats{grid-area:stats;margin:0;border-top:1px solid var(--line);padding-top:10px;grid-template-columns:1fr 1fr 1fr}
+  .player-stats span{padding-left:12px}
+  .player-stats span:first-child{padding-left:0}
+  .player-stats strong{font-size:14px}
+  .market-card>.button,.market-card>.bid-done{grid-area:action;width:auto;align-self:center;min-height:44px;height:auto;padding:0 20px;font-size:13px;border-radius:12px;white-space:nowrap}
+  .market-owner{grid-area:owner;margin:0;text-align:left;font-size:9px}
+
+  /* --- Listas y controles más grandes en móvil --- */
+  .player-avatar.small{width:44px;height:44px;font-size:10px}
+  .squad-row{grid-template-columns:48px 48px 1fr 48px;padding:11px 14px}
+  .sell-row{grid-template-columns:48px 1fr auto auto}
+  .squad-row strong,.sell-row strong,.rival-player-row strong{font-size:14px}
+  .squad-row small,.sell-row small,.rival-player-row small{font-size:11px}
+  .squad-row b{font-size:16px}
+  .topbar h1{font-size:17px}
+  .tabs button{min-height:40px;font-size:13px}
+  .bottom-nav{height:68px}
+  .bottom-nav button{font-size:9px}
+  .bottom-nav svg{width:21px}
 }

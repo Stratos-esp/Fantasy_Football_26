@@ -25,25 +25,66 @@ export type PlayerDetail = {
 
 export type PlayerAction = { label: string; onClick: () => void; tone?: "primary" | "danger" | "ghost"; disabled?: boolean };
 
-export function Sparkline({ points }: { points: number[] }) {
+function sparkDate(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short" });
+}
+
+export function Sparkline({ points, dates }: { points: number[]; dates?: string[] }) {
+  const [active, setActive] = useState<number | null>(null);
   if (points.length < 2) return <div className="spark-empty">Aún no hay histórico de precios. Se registrará tras cada jornada.</div>;
   const min = Math.min(...points);
   const max = Math.max(...points);
   const range = max - min || 1;
   const w = 280;
   const h = 70;
+  const pad = 6;
   const step = w / (points.length - 1);
-  const coords = points.map((value, index) => [index * step, h - ((value - min) / range) * (h - 10) - 5] as const);
+  const coords = points.map((value, index) => [index * step, h - ((value - min) / range) * (h - 2 * pad) - pad] as const);
   const path = coords.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const area = `${path} L${w},${h} L0,${h} Z`;
   const up = points[points.length - 1] >= points[0];
   const color = up ? "var(--positive)" : "var(--danger)";
+
+  function track(clientX: number, target: HTMLElement) {
+    const rect = target.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    setActive(Math.round(frac * (points.length - 1)));
+  }
+
+  const activeLeft = active === null ? 0 : (active / (points.length - 1)) * 100;
+
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="sparkline" preserveAspectRatio="none">
-      <path d={area} fill={color} opacity="0.12" />
-      <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      {coords.map(([x, y], i) => i === coords.length - 1 && <circle key={i} cx={x} cy={y} r="3" fill={color} />)}
-    </svg>
+    <div className="sparkline-wrap">
+      <div
+        className="sparkline-plot"
+        onPointerDown={(e) => track(e.clientX, e.currentTarget)}
+        onPointerMove={(e) => track(e.clientX, e.currentTarget)}
+        onPointerLeave={() => setActive(null)}
+      >
+        <svg viewBox={`0 0 ${w} ${h}`} className="sparkline" preserveAspectRatio="none">
+          <path d={area} fill={color} opacity="0.12" />
+          <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+          {active !== null && <line className="spark-cursor" x1={coords[active][0]} y1="0" x2={coords[active][0]} y2={h} />}
+          {coords.map(([x, y], i) => i === coords.length - 1 && active === null && <circle key={i} cx={x} cy={y} r="3" fill={color} />)}
+          {active !== null && <circle cx={coords[active][0]} cy={coords[active][1]} r="3.5" fill={color} stroke="var(--surface)" strokeWidth="1.5" />}
+        </svg>
+        <span className="spark-axis-y spark-axis-max">{money(max)}</span>
+        <span className="spark-axis-y spark-axis-min">{money(min)}</span>
+        {active !== null && (
+          <div className="spark-tooltip" style={{ left: `${activeLeft}%` }}>
+            <strong>{money(points[active])}</strong>
+            {dates && dates[active] && <small>{sparkDate(dates[active])}</small>}
+          </div>
+        )}
+      </div>
+      <div className="spark-axis-x">
+        <span>{dates && dates[0] ? sparkDate(dates[0]) : "Inicio"}</span>
+        <span className="spark-axis-hint">Toca la gráfica para ver el valor</span>
+        <span>{dates && dates[dates.length - 1] ? sparkDate(dates[dates.length - 1]) : "Ahora"}</span>
+      </div>
+    </div>
   );
 }
 
@@ -91,7 +132,7 @@ export function PlayerModal({ leagueId, playerId, actions = [], onClose }: { lea
 
             <div className="player-modal-section">
               <span className="kicker">EVOLUCIÓN DEL VALOR</span>
-              <Sparkline points={detail.priceHistory.map((p) => p.value)} />
+              <Sparkline points={detail.priceHistory.map((p) => p.value)} dates={detail.priceHistory.map((p) => p.at)} />
             </div>
 
             <div className="player-modal-section">
