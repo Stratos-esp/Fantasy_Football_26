@@ -360,3 +360,53 @@ a { color:inherit; text-decoration:none; }
   .market-card-top{flex-direction:column;align-items:center;gap:6px}
   .market-card-top>.position-tag{display:inline-grid}
 }
+
+/* --- Campo vertical: jugadores más grandes y legibles --- */
+.vertical-pitch .player-avatar{width:clamp(44px,11.5cqi,76px);height:clamp(44px,11.5cqi,76px)}
+.vertical-pitch .pitch-player{gap:5px}
+.vertical-pitch .pitch-player strong{font-size:clamp(11px,2.5cqi,15px);max-width:130px}
+.vertical-pitch .pitch-player>span:last-child{font-size:clamp(9px,2cqi,12px);padding:3px 9px}
+.vertical-pitch .pitch-player .captain-crown{width:clamp(16px,3.4cqi,22px);height:clamp(16px,3.4cqi,22px);top:-9px}
+
+/* --- Pestaña Jugadores --- */
+.players-layout{display:block}
+.players-panel{max-width:940px;margin:0 auto}
+.players-filters{display:flex;gap:10px;padding:0 20px 14px;flex-wrap:wrap}
+.players-search{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface-2);border-radius:9px;padding:0 12px;color:var(--muted)}
+.players-search input{flex:1;border:0;background:transparent;color:var(--ink);padding:10px 0;font-size:13px;outline:none}
+.players-filters select{border:1px solid var(--line);background:var(--surface-2);color:var(--ink);border-radius:9px;padding:9px 12px;font-size:12px}
+.players-head{display:grid;grid-template-columns:1fr auto 44px 88px;gap:10px;padding:8px 20px;font-size:10px;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--line)}
+.players-head span:last-child,.players-head span:nth-child(3){text-align:right}
+.players-list{display:flex;flex-direction:column}
+.player-row{width:100%;display:grid;grid-template-columns:auto auto 1fr auto 44px 88px;gap:10px;align-items:center;padding:9px 20px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;text-align:left;font:inherit}
+.player-row:hover{background:var(--surface-2)}
+.player-row:disabled{opacity:.5;cursor:default}
+.player-row-name{display:flex;flex-direction:column;min-width:0}
+.player-row-name strong{font-size:12px;display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-row-name small{font-size:10px;color:var(--muted)}
+.player-row-pts{font-size:14px;text-align:right}
+.player-row-val{font-size:11px;color:var(--muted);text-align:right}
+.form-bars{display:inline-flex;align-items:flex-end;gap:2px;height:22px}
+.form-bars i{width:4px;border-radius:1px;display:block}
+.form-bars i.pos{background:var(--positive)}
+.form-bars i.neg{background:var(--danger)}
+.form-empty{color:var(--muted)}
+
+/* Chips de forma en la convocatoria */
+.form-strip{display:inline-flex;gap:3px;margin-top:4px}
+.form-strip i{font-size:9px;min-width:16px;text-align:center;padding:1px 3px;border-radius:4px;font-style:normal;font-weight:700;line-height:1.5}
+.form-strip i.pos{background:rgba(53,200,120,.16);color:var(--positive)}
+.form-strip i.neg{background:rgba(230,90,90,.18);color:var(--danger)}
+
+/* Ficha global: estadísticas y barras desplazables */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stat-grid div{background:var(--surface-2);border-radius:9px;padding:9px 6px;text-align:center}
+.stat-grid strong{display:block;font-size:16px}
+.stat-grid small{font-size:9px;color:var(--muted)}
+.points-bars-scroll{flex-wrap:nowrap;overflow-x:auto;padding-bottom:5px}
+
+@media (max-width: 640px){
+  .hide-sm{display:none}
+  .players-head{grid-template-columns:1fr 44px 88px}
+  .player-row{grid-template-columns:auto auto 1fr 44px 88px}
+}

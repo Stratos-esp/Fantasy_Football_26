@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bell, CalendarDays, ChevronDown, Copy, Gavel, Home, LayoutGrid, LogOut,
-  MessageCircle, Search, Settings, Shield, Shirt, Trophy, X,
+  MessageCircle, Search, Settings, Shield, Shirt, Trophy, Users, X,
 } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { apiGet, apiPost, money, timeAgo } from "@/lib/client";
@@ -12,9 +12,10 @@ import { HomeView } from "@/components/views-home";
 import { SquadView } from "@/components/views-squad";
 import { MarketView } from "@/components/views-market";
 import { CommunityView, MatchdayView, StandingsView } from "@/components/views-league";
+import { PlayersView } from "@/components/views-players";
 import { AdminView, SettingsView } from "@/components/views-admin";
 
-export type Section = "inicio" | "plantilla" | "mercado" | "clasificacion" | "jornada" | "comunidad" | "administracion" | "ajustes";
+export type Section = "inicio" | "plantilla" | "mercado" | "clasificacion" | "jornada" | "jugadores" | "comunidad" | "administracion" | "ajustes";
 type Theme = "stratos" | "classic" | "midnight" | "sand";
 
 type MeResponse = { user: { id: string; username: string; displayName: string }; memberships: Membership[] };
@@ -25,6 +26,7 @@ const nav = [
   { id: "mercado" as const, label: "Mercado", icon: Gavel },
   { id: "clasificacion" as const, label: "Clasificación", icon: Trophy },
   { id: "jornada" as const, label: "Jornada", icon: CalendarDays },
+  { id: "jugadores" as const, label: "Jugadores", icon: Users },
   { id: "comunidad" as const, label: "Comunidad", icon: MessageCircle },
 ];
 
@@ -129,6 +131,7 @@ export function FantasyApp() {
       mercado: ["Mercado", state ? `${state.market.length} operaciones abiertas` : ""],
       clasificacion: ["Clasificación", state ? `${state.league.name} · Temporada ${state.league.season}/${(state.league.season + 1) % 100}` : ""],
       jornada: [matchday || "Jornada", state?.lastMatchday ? `Última disputada: jornada ${state.lastMatchday.number}` : "Aún no se ha disputado ninguna jornada"],
+      jugadores: ["Jugadores", "Base de datos de LaLiga · valores, puntos e histórico"],
       comunidad: ["Comunidad", "Chat y movimientos de la liga"],
       administracion: ["Administración", "Miembros, invitaciones e historial"],
       ajustes: ["Ajustes", "Tu experiencia y las reglas de la liga"],
@@ -224,6 +227,7 @@ export function FantasyApp() {
           {section === "mercado" && <MarketView state={state} act={act} notify={notify} />}
           {section === "clasificacion" && <StandingsView state={state} act={act} notify={notify} />}
           {section === "jornada" && <MatchdayView state={state} act={act} notify={notify} />}
+          {section === "jugadores" && <PlayersView />}
           {section === "comunidad" && <CommunityView state={state} notify={notify} />}
           {section === "administracion" && <AdminView state={state} act={act} notify={notify} />}
           {section === "ajustes" && <SettingsView state={state} act={act} notify={notify} theme={theme} setTheme={(value) => setTheme(value as Theme)} />}

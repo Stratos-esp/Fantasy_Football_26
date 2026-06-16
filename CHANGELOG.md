@@ -11,7 +11,14 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 ### Añadido
 
 - Documentación común para mantener el historial y coordinar contribuciones.
-- Modal de resultados en Clasificación para consultar las jornadas disputadas.
+- Nueva pestaña «Jugadores»: base de datos de toda LaLiga con buscador y
+  filtros por posición y equipo, y ficha individual con gráfico real de
+  evolución del valor de mercado, puntos por jornada y estadísticas de la
+  temporada (datos en vivo de LaLiga Fantasy).
+- En «Mi plantilla», la convocatoria muestra la forma reciente (puntos de las
+  últimas jornadas) de cada jugador además del cómputo global.
+- Selector de jornada dentro de Clasificación para consultar los resultados de
+  cada jornada disputada.
 - Ajuste para que cada miembro pueda cambiar el nombre de su equipo desde
   Ajustes.
 - Modal de rival desde Clasificación para ver alineación, plantilla completa,
@@ -26,11 +33,16 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 - La pantalla de Inicio muestra el once en campo vertical.
 - Las etiquetas de posición son más visibles en plantillas, banquillo y mercado.
 - Los temas alternativos se suavizaron, con dos opciones oscuras más cómodas.
+- Los jugadores del campo (alineación) son más grandes y legibles, y escalan de
+  forma proporcional al tamaño del campo en pantallas pequeñas.
 
 ### Corregido
 
 - Se repararon los nombres de usuarios que conservaban acentos dañados en la
   base de datos.
+- La Clasificación ya no abre automáticamente una ventana emergente que no se
+  podía cerrar; los resultados por jornada se consultan ahora desde la propia
+  vista.
 
 ## 2026-06-15
 
