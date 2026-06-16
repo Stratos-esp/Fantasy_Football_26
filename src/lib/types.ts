@@ -15,6 +15,9 @@ export type LeagueRules = {
   moneyPerPoint: number;          // € que ganas por cada punto positivo de la jornada
   clauseLimitPerDay: number;      // máximo de clausulazos al mismo jugador cada 24h (0 = sin límite)
   clauseMinHoursBeforeLock: number; // no se pueden pagar cláusulas si faltan menos de X h para el cierre (0 = sin límite)
+  negativeBalanceZero: boolean;   // si terminas en negativo, no puntúas esa jornada (en vez de restar puntos)
+  maxDebtPercent: number;         // % del valor de tu equipo que puedes endeudarte para fichar (0 = sin deuda)
+  clauseInvestCost: number;       // € que hay que invertir por cada € de subida de cláusula (2 = relación 2:1)
 };
 
 export type LeagueSettings = {
@@ -34,6 +37,9 @@ export const defaultLeagueRules: LeagueRules = {
   moneyPerPoint: 0,
   clauseLimitPerDay: 0,
   clauseMinHoursBeforeLock: 0,
+  negativeBalanceZero: false,
+  maxDebtPercent: 0,
+  clauseInvestCost: 2,
 };
 
 export const defaultLeagueSettings: LeagueSettings = {
@@ -74,12 +80,16 @@ function parseLeagueRules(raw: unknown): LeagueRules {
   const data = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const num = (value: unknown, fallback: number, min: number, max: number) =>
     typeof value === "number" && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+  const bool = (value: unknown, fallback: boolean) => (typeof value === "boolean" ? value : fallback);
   return {
     unalignedPenalty: num(data.unalignedPenalty, defaultLeagueRules.unalignedPenalty, -50, 0),
     negativeBalancePenalty: num(data.negativeBalancePenalty, defaultLeagueRules.negativeBalancePenalty, -100, 0),
     moneyPerPoint: num(data.moneyPerPoint, defaultLeagueRules.moneyPerPoint, 0, 5_000_000),
     clauseLimitPerDay: Math.round(num(data.clauseLimitPerDay, defaultLeagueRules.clauseLimitPerDay, 0, 50)),
     clauseMinHoursBeforeLock: Math.round(num(data.clauseMinHoursBeforeLock, defaultLeagueRules.clauseMinHoursBeforeLock, 0, 240)),
+    negativeBalanceZero: bool(data.negativeBalanceZero, defaultLeagueRules.negativeBalanceZero),
+    maxDebtPercent: Math.round(num(data.maxDebtPercent, defaultLeagueRules.maxDebtPercent, 0, 100)),
+    clauseInvestCost: num(data.clauseInvestCost, defaultLeagueRules.clauseInvestCost, 1, 10),
   };
 }
 
@@ -217,7 +227,7 @@ export type LeagueState = {
     isAdmin: boolean;
     lineupLocksAt: string | null;
   };
-  myMember: { id: string; budget: number; teamName: string; role: string };
+  myMember: { id: string; budget: number; teamName: string; role: string; debtAllowance: number };
   members: MemberSummary[];
   squad: SquadEntry[];
   lineup: LineupState;

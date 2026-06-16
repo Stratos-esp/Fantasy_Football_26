@@ -105,7 +105,7 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
 
       <div className="market-summary">
         <div><Gavel /><span><small>TUS PUJAS ACTIVAS</small><strong>{myBids.length}</strong></span></div>
-        <div><Landmark /><span><small>SALDO DISPONIBLE</small><strong>{money(state.myMember.budget)}</strong></span></div>
+        <div><Landmark /><span><small>SALDO DISPONIBLE</small><strong>{money(state.myMember.budget)}</strong>{state.myMember.debtAllowance > 0 && <small className="debt-note">+{money(state.myMember.debtAllowance)} de deuda</small>}</span></div>
         <div><Activity /><span><small>PRÓXIMO CIERRE</small><strong>{countdown(nextClose)}</strong></span></div>
       </div>
 
@@ -293,13 +293,13 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
                 <p>{player.team} · Valor {money(player.value)}</p>
               </>;
             })()}
-            <label>{bidTarget ? `TU PUJA (MÍNIMO ${(bidTarget.askingPrice / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 1 })})` : offerTarget ? "TU OFERTA" : listTarget ? "PRECIO DE VENTA" : "INVERTIR (SUBE LA CLÁUSULA 1:1)"}</label>
+            <label>{bidTarget ? `TU PUJA (MÍNIMO ${(bidTarget.askingPrice / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 1 })})` : offerTarget ? "TU OFERTA" : listTarget ? "PRECIO DE VENTA" : `INVERTIR (RELACIÓN ${state.league.settings.rules.clauseInvestCost}:1)`}</label>
             <div className="money-input">
               <input autoFocus inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0,0" />
               <span>M€</span>
             </div>
             {clauseTarget && (
-              <small>Cláusula actual: {clauseTarget.clauseValue !== null ? money(clauseTarget.clauseValue) : "—"}{moneyInput(amount) ? ` → nueva ${money((clauseTarget.clauseValue ?? clauseTarget.value) + moneyInput(amount)!)}` : ""}</small>
+              <small>Cláusula actual: {clauseTarget.clauseValue !== null ? money(clauseTarget.clauseValue) : "—"}{moneyInput(amount) ? ` → nueva ${money((clauseTarget.clauseValue ?? clauseTarget.value) + Math.round(moneyInput(amount)! / state.league.settings.rules.clauseInvestCost))}` : ""}</small>
             )}
             <small>Saldo disponible: {money(state.myMember.budget)}</small>
             <button className="button full" disabled={busy} onClick={bidTarget ? confirmBid : offerTarget ? confirmOffer : listTarget ? confirmList : confirmClause}>

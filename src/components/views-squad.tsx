@@ -362,12 +362,12 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
             <PositionTag position={clausePlayer.position} />
             <h2><TeamBadge player={clausePlayer} />{clausePlayer.name}</h2>
             <p>{clausePlayer.team} · Valor {money(clausePlayer.value)}</p>
-            <label>INVERTIR (SUBE LA CLÁUSULA 1:1)</label>
+            <label>INVERTIR (RELACIÓN {settings.rules.clauseInvestCost}:1)</label>
             <div className="money-input">
               <input autoFocus inputMode="decimal" value={clauseAmount} onChange={(event) => setClauseAmount(event.target.value)} placeholder="0,0" />
               <span>M€</span>
             </div>
-            <small>Cláusula actual: {clausePlayer.clauseValue !== null ? money(clausePlayer.clauseValue) : "—"}{clauseInvestment ? ` → nueva ${money((clausePlayer.clauseValue ?? clausePlayer.value) + clauseInvestment)}` : ""}</small>
+            <small>Cláusula actual: {clausePlayer.clauseValue !== null ? money(clausePlayer.clauseValue) : "—"}{clauseInvestment ? ` → nueva ${money((clausePlayer.clauseValue ?? clausePlayer.value) + Math.round(clauseInvestment / settings.rules.clauseInvestCost))}` : ""}</small>
             <small>Saldo disponible: {money(state.myMember.budget)}</small>
             <button className="button full" disabled={clauseBusy} onClick={confirmClause}><LockKeyhole size={16} /> Subir cláusula</button>
           </div>

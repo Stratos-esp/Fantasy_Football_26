@@ -80,6 +80,14 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   mejor jornada.
 - Tests automáticos de la puntuación de jugadores y de la resolución de la
   votación.
+- Nueva norma: deuda máxima configurable (% del valor de tu equipo) que puedes
+  gastar por encima de tu saldo para fichar, pudiendo quedarte en negativo.
+- Nueva norma: opción «no puntuar» con saldo negativo (en vez de restar puntos,
+  esa jornada no sumas nada).
+- Nueva norma: coste configurable de subir la cláusula (por defecto 2:1, es
+  decir 2 € invertidos por cada 1 € que sube la cláusula).
+- Icono de la aplicación: al añadir el acceso a la pantalla de inicio del móvil
+  y en la pestaña/buscador del navegador se muestra el logo de Stratos.
 
 ### Cambiado
 

@@ -603,6 +603,7 @@ export async function executeTransfer(db: Db, args: TransferArgs) {
     p_listing_id: args.listingId ?? null,
     p_clause_multiplier: settings.clauseMultiplier,
     p_squad_size: args.league.squad_size,
+    p_max_debt_pct: settings.rules.maxDebtPercent,
   });
   if (error) throw new ServiceError(cleanPgError(error.message), 400);
 
@@ -803,8 +804,11 @@ export async function simulateMatchday(db: Db, league: LeagueRow, actorUserId: s
     const expectedStarters = shape ? 1 + shape.DEF + shape.MED + shape.DEL : 11;
     const emptySlots = Math.max(0, expectedStarters - starters.length);
     total += emptySlots * settings.rules.unalignedPenalty;
-    // Norma: penalización por terminar la jornada con saldo negativo.
-    if (Number(member.budget) < 0) total += settings.rules.negativeBalancePenalty;
+    // Norma: saldo negativo. O bien no puntúas esa jornada, o bien resta puntos.
+    if (Number(member.budget) < 0) {
+      if (settings.rules.negativeBalanceZero) total = 0;
+      else total += settings.rules.negativeBalancePenalty;
+    }
     total = Math.round(total * 100) / 100;
     // Norma: dinero ganado por cada punto positivo de la jornada.
     const moneyAward = Math.round(Math.max(0, total) * settings.rules.moneyPerPoint);
@@ -1238,7 +1242,13 @@ export async function getLeagueState(db: Db, league: LeagueRow, member: MemberRo
       isAdmin: isAdmin(member),
       lineupLocksAt,
     },
-    myMember: { id: member.id, budget: Number(member.budget), teamName: member.team_name, role: member.role },
+    myMember: {
+      id: member.id,
+      budget: Number(member.budget),
+      teamName: member.team_name,
+      role: member.role,
+      debtAllowance: Math.floor((squadValueByMember.get(member.id) ?? 0) * settings.rules.maxDebtPercent / 100),
+    },
     members: membersData
       .map((m) => ({
         id: m.id,

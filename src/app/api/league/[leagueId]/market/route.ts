@@ -18,6 +18,18 @@ type Payload = {
 
 const money = (value: number) => `${(value / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 1 })} M€`;
 
+// Cuánto puede endeudarse el miembro: % del valor de mercado de su plantilla.
+async function debtAllowance(context: MemberContext): Promise<number> {
+  const settings = leagueSettings(context.league);
+  if (settings.rules.maxDebtPercent <= 0) return 0;
+  const { data: squad } = await context.db.from("fantasy_squads").select("player_id").eq("league_member_id", context.member.id);
+  const ids = (squad ?? []).map((row) => row.player_id as string);
+  if (ids.length === 0) return 0;
+  const { data: players } = await context.db.from("fantasy_players").select("current_value").in("id", ids);
+  const value = (players ?? []).reduce((sum, player) => sum + Number(player.current_value ?? 0), 0);
+  return Math.floor(value * settings.rules.maxDebtPercent / 100);
+}
+
 export async function POST(request: Request, { params }: { params: Promise<{ leagueId: string }> }) {
   const { leagueId } = await params;
   const body = await request.json().catch(() => null) as Payload | null;
@@ -65,7 +77,7 @@ async function placeBid(context: MemberContext, body: Payload) {
   if (listing.closes_at && new Date(listing.closes_at).getTime() < Date.now()) throw new ServiceError("La puja ya ha cerrado.");
   const amount = Math.round(Number(body.amount));
   if (!Number.isFinite(amount) || amount < Number(listing.asking_price)) throw new ServiceError(`La puja mínima es ${money(Number(listing.asking_price))}.`);
-  if (amount > Number(context.member.budget)) throw new ServiceError("No tienes saldo suficiente para esa puja.");
+  if (amount > Number(context.member.budget) + await debtAllowance(context)) throw new ServiceError("Esa puja supera tu saldo y tu límite de deuda.");
   const { error } = await context.db.from("fantasy_bids").upsert({
     listing_id: listing.id,
     bidder_member_id: context.member.id,
@@ -173,6 +185,7 @@ async function increaseClause(context: MemberContext, body: Payload) {
     p_player_id: body.playerId,
     p_member: context.member.id,
     p_amount: amount,
+    p_cost: settings.rules.clauseInvestCost,
   });
   if (error) throw new ServiceError(error.message.replace(/^.*?:\s*/, "").trim().slice(0, 160) || "No se pudo subir la cláusula.", 400);
   const newClause = Number((data as { clause?: number } | null)?.clause ?? 0);
@@ -244,7 +257,7 @@ async function makeOffer(context: MemberContext, body: Payload) {
   if (!body.playerId) throw new ServiceError("Falta el jugador.");
   const amount = Math.round(Number(body.amount));
   if (!Number.isFinite(amount) || amount < 100000) throw new ServiceError("Indica una cantidad válida.");
-  if (amount > Number(context.member.budget)) throw new ServiceError("No tienes saldo suficiente para esa oferta.");
+  if (amount > Number(context.member.budget) + await debtAllowance(context)) throw new ServiceError("Esa oferta supera tu saldo y tu límite de deuda.");
   const { data: members } = await context.db.from("fantasy_league_members").select("id").eq("league_id", context.league.id);
   const { data: squadRow } = await context.db
     .from("fantasy_squads")

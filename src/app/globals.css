@@ -653,3 +653,4 @@ button.points-bar{border:0;background:transparent;cursor:pointer;font:inherit}
 /* Cierre de jornada (admin) */
 .lock-form{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .lock-form input{border:1px solid var(--line);background:var(--surface-2);border-radius:9px;padding:9px 11px;color:var(--ink);font:inherit;outline:0}
+.market-summary .debt-note{color:var(--positive);margin-top:2px}

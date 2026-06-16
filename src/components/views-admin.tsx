@@ -216,6 +216,9 @@ const RULE_LABELS: Record<keyof LeagueRules, string> = {
   moneyPerPoint: "Dinero por punto",
   clauseLimitPerDay: "Límite de clausulazos/24h",
   clauseMinHoursBeforeLock: "Horas mín. antes del cierre",
+  negativeBalanceZero: "No puntuar con saldo negativo",
+  maxDebtPercent: "Deuda máxima (% del equipo)",
+  clauseInvestCost: "Coste de subir cláusula (€ por €)",
 };
 const MARKET_LABELS: Record<keyof MarketSettings, string> = {
   bids: "Pujas",
@@ -235,8 +238,9 @@ const onoff = (value: boolean) => (value ? "sí" : "no");
 
 function describeSettingsChanges(a: LeagueSettings, b: LeagueSettings): string {
   const parts: string[] = [];
+  const fmt = (v: number | boolean) => (typeof v === "boolean" ? (v ? "sí" : "no") : v);
   (Object.keys(RULE_LABELS) as (keyof LeagueRules)[]).forEach((key) => {
-    if (a.rules[key] !== b.rules[key]) parts.push(`${RULE_LABELS[key]}: ${a.rules[key]} → ${b.rules[key]}`);
+    if (a.rules[key] !== b.rules[key]) parts.push(`${RULE_LABELS[key]}: ${fmt(a.rules[key])} → ${fmt(b.rules[key])}`);
   });
   if (a.captain !== b.captain) parts.push(`Capitán: ${onoff(a.captain)} → ${onoff(b.captain)}`);
   if (a.captainMultiplier !== b.captainMultiplier) parts.push(`Multiplicador capitán: x${a.captainMultiplier} → x${b.captainMultiplier}`);
@@ -383,13 +387,18 @@ export function NormasView({ state, act, notify }: { state: LeagueState; act: Ac
               <button onClick={() => update("unalignedPenalty", Math.min(0, rules.unalignedPenalty + 1))}><Plus /></button>
             </div>
           </SettingRow>
-          <SettingRow title="Penalización por saldo negativo" text="Puntos que restas si terminas la jornada con el saldo en negativo">
-            <div className="stepper">
-              <button onClick={() => update("negativeBalancePenalty", Math.max(-100, rules.negativeBalancePenalty - 1))}><Minus /></button>
-              <strong>{rules.negativeBalancePenalty}</strong>
-              <button onClick={() => update("negativeBalancePenalty", Math.min(0, rules.negativeBalancePenalty + 1))}><Plus /></button>
-            </div>
+          <SettingRow title="No puntuar con saldo negativo" text="Si terminas la jornada en negativo, no sumas puntos esa jornada (en vez de una penalización fija)">
+            <Toggle checked={rules.negativeBalanceZero} onChange={() => update("negativeBalanceZero", !rules.negativeBalanceZero)} label="No puntuar con saldo negativo" />
           </SettingRow>
+          {!rules.negativeBalanceZero && (
+            <SettingRow title="Penalización por saldo negativo" text="Puntos que restas si terminas la jornada con el saldo en negativo">
+              <div className="stepper">
+                <button onClick={() => update("negativeBalancePenalty", Math.max(-100, rules.negativeBalancePenalty - 1))}><Minus /></button>
+                <strong>{rules.negativeBalancePenalty}</strong>
+                <button onClick={() => update("negativeBalancePenalty", Math.min(0, rules.negativeBalancePenalty + 1))}><Plus /></button>
+              </div>
+            </SettingRow>
+          )}
         </div>
 
         <div className="settings-section">
@@ -415,7 +424,21 @@ export function NormasView({ state, act, notify }: { state: LeagueState; act: Ac
               <button onClick={() => update("clauseMinHoursBeforeLock", Math.min(240, rules.clauseMinHoursBeforeLock + 1))}><Plus /></button>
             </div>
           </SettingRow>
-          <small className="settings-help">Ejemplo: con 50.000 € por punto, una jornada de 40 puntos te da 2 M€. El cierre de la jornada lo fija el admin en Administración.</small>
+          <SettingRow title="Coste de subir la cláusula" text="Cuántos millones tienes que invertir por cada millón que sube la cláusula (2 = relación 2:1)">
+            <div className="stepper">
+              <button onClick={() => update("clauseInvestCost", Math.max(1, Math.round((rules.clauseInvestCost - 0.5) * 2) / 2))}><Minus /></button>
+              <strong>{rules.clauseInvestCost}:1</strong>
+              <button onClick={() => update("clauseInvestCost", Math.min(10, Math.round((rules.clauseInvestCost + 0.5) * 2) / 2))}><Plus /></button>
+            </div>
+          </SettingRow>
+          <SettingRow title="Deuda máxima" text="Porcentaje del valor de tu equipo que puedes endeudarte para fichar (puedes quedarte en negativo)">
+            <div className="stepper">
+              <button onClick={() => update("maxDebtPercent", Math.max(0, rules.maxDebtPercent - 5))}><Minus /></button>
+              <strong>{rules.maxDebtPercent}%</strong>
+              <button onClick={() => update("maxDebtPercent", Math.min(100, rules.maxDebtPercent + 5))}><Plus /></button>
+            </div>
+          </SettingRow>
+          <small className="settings-help">Ejemplo: con deuda máxima 20% y un equipo de 100 M€, puedes gastar 20 M€ más de tu saldo. Con coste 2:1, invertir 2 M€ sube la cláusula 1 M€.</small>
         </div>
 
         <div className="settings-save">

@@ -1,10 +1,13 @@
 {
-  "name": "Fantasy",
-  "short_name": "Fantasy",
+  "name": "Stratos League",
+  "short_name": "Stratos",
   "description": "Fantasy privado de fútbol para jugar con amigos",
   "start_url": "/app",
   "display": "standalone",
   "background_color": "#07120e",
-  "theme_color": "#b8f35a",
-  "icons": []
+  "theme_color": "#0e2d20",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
 }

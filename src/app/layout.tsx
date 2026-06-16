@@ -2,10 +2,20 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Fantasy",
+  title: "Stratos League",
   description: "Tu liga fantasy privada, a vuestra manera.",
-  applicationName: "Fantasy",
+  applicationName: "Stratos League",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Stratos League",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport: Viewport = {
