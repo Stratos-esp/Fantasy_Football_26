@@ -64,6 +64,22 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   directamente, sino a través de esta votación.
 - Nueva norma configurable: límite de clausulazos al mismo jugador cada 24 horas
   (0 = sin límite).
+- Todas las reglas de la liga (alineación, mercado, puntuación y economía) se
+  configuran ahora desde la pestaña Normas y se deciden por votación; Ajustes
+  solo conserva el tema y el nombre de equipo.
+- Cierre de jornada: el administrador puede fijar una fecha y hora límite para
+  cambiar la alineación. A partir de ahí no se pueden editar alineaciones.
+- Nueva norma: horas mínimas antes del cierre para poder pagar una cláusula.
+- Notificaciones cuando se abre una propuesta de normas (para que la liga vote)
+  y cuando se disputa una jornada (con tus puntos y dinero ganado).
+- Historial reciente de propuestas (aprobadas, rechazadas o retiradas) en Normas.
+- La pestaña Jornada permite cambiar entre todas las jornadas disputadas, muestra
+  las fotos de los jugadores y, al tocar un mánager, abre su alineación de esa
+  jornada con los puntos de cada jugador y su evolución por jornada.
+- En Clasificación, panel con tu evolución por jornada (puntos y posición) y tu
+  mejor jornada.
+- Tests automáticos de la puntuación de jugadores y de la resolución de la
+  votación.
 
 ### Cambiado
 
@@ -76,6 +92,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   centrados: los dos delanteros dejan de quedar pegados a las bandas.
 - Ya se puede guardar la alineación con menos de 11 titulares; cada hueco vacío
   resta los puntos configurados en Normas al disputar la jornada.
+- La inversión en cláusula ahora es atómica (una sola transacción en la base de
+  datos), evitando descuadres de saldo.
+- La pantalla de Inicio muestra la clasificación completa de la liga, no solo los
+  primeros cuatro.
 - Los retratos de jugadores se centran mejor dentro de los avatares circulares.
 - La vista Mi plantilla usa un campo vertical de abajo a arriba para configurar
   la alineación.
@@ -101,6 +121,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   hay algún hueco libre en la plantilla.
 - Con el banquillo desactivado, la convocatoria ya no muestra jugadores como
   «suplentes».
+- En móvil, la convocatoria ya muestra la lista completa de jugadores (antes se
+  cortaba a partir del noveno).
+- En la pestaña Jornada vuelven a verse las fotos de los jugadores.
 
 ## 2026-06-15
 

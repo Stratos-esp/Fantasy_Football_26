@@ -37,8 +37,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ leag
     const captain = body?.captainPlayerId ?? null;
     if (captain && !starters.includes(captain)) throw new ServiceError("El capitán debe ser titular.");
 
-    const { data: matchday } = await db.from("fantasy_matchdays").select("id, status").eq("league_id", league.id).eq("number", league.current_matchday).maybeSingle();
+    const { data: matchday } = await db.from("fantasy_matchdays").select("id, status, locks_at").eq("league_id", league.id).eq("number", league.current_matchday).maybeSingle();
     if (!matchday || matchday.status === "finished") throw new ServiceError("La temporada ha terminado: no hay jornada activa.");
+    if (matchday.locks_at && new Date(matchday.locks_at as string).getTime() <= Date.now()) throw new ServiceError("La alineación ya está cerrada para esta jornada.");
 
     const { data: lineup, error } = await db.from("fantasy_lineups").upsert({
       matchday_id: matchday.id,

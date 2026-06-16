@@ -14,6 +14,7 @@ export type LeagueRules = {
   negativeBalancePenalty: number; // puntos si terminas la jornada con saldo negativo (negativo)
   moneyPerPoint: number;          // € que ganas por cada punto positivo de la jornada
   clauseLimitPerDay: number;      // máximo de clausulazos al mismo jugador cada 24h (0 = sin límite)
+  clauseMinHoursBeforeLock: number; // no se pueden pagar cláusulas si faltan menos de X h para el cierre (0 = sin límite)
 };
 
 export type LeagueSettings = {
@@ -32,6 +33,7 @@ export const defaultLeagueRules: LeagueRules = {
   negativeBalancePenalty: 0,
   moneyPerPoint: 0,
   clauseLimitPerDay: 0,
+  clauseMinHoursBeforeLock: 0,
 };
 
 export const defaultLeagueSettings: LeagueSettings = {
@@ -77,6 +79,7 @@ function parseLeagueRules(raw: unknown): LeagueRules {
     negativeBalancePenalty: num(data.negativeBalancePenalty, defaultLeagueRules.negativeBalancePenalty, -100, 0),
     moneyPerPoint: num(data.moneyPerPoint, defaultLeagueRules.moneyPerPoint, 0, 5_000_000),
     clauseLimitPerDay: Math.round(num(data.clauseLimitPerDay, defaultLeagueRules.clauseLimitPerDay, 0, 50)),
+    clauseMinHoursBeforeLock: Math.round(num(data.clauseMinHoursBeforeLock, defaultLeagueRules.clauseMinHoursBeforeLock, 0, 240)),
   };
 }
 
@@ -177,6 +180,29 @@ export type RoundResult = {
   memberPoints: { memberId: string; points: number }[];
 };
 
+export type MatchdayDetailPlayer = Pick<ApiPlayer, "name" | "team" | "teamColor" | "teamLogo" | "photo" | "position"> & {
+  playerId: string;
+  points: number;
+  starter: boolean;
+};
+
+export type MatchdayDetailMember = {
+  memberId: string;
+  teamName: string;
+  displayName: string;
+  color: string;
+  points: number;
+  formation: string;
+  captainPlayerId: string | null;
+  players: MatchdayDetailPlayer[];
+};
+
+export type MatchdayDetail = {
+  number: number;
+  finished: boolean;
+  members: MatchdayDetailMember[];
+};
+
 export type LeagueState = {
   user: { id: string; username: string; displayName: string };
   league: {
@@ -189,6 +215,7 @@ export type LeagueState = {
     startingBudget: number;
     settings: LeagueSettings;
     isAdmin: boolean;
+    lineupLocksAt: string | null;
   };
   myMember: { id: string; budget: number; teamName: string; role: string };
   members: MemberSummary[];
@@ -203,7 +230,7 @@ export type LeagueState = {
   lastMatchday: {
     number: number;
     memberPoints: { memberId: string; points: number }[];
-    myPlayerPoints: Array<Pick<ApiPlayer, "name" | "team" | "teamShort" | "teamColor" | "teamLogo"> & {
+    myPlayerPoints: Array<Pick<ApiPlayer, "name" | "team" | "teamShort" | "teamColor" | "teamLogo" | "photo"> & {
       playerId: string;
       points: number;
       starter: boolean;
@@ -212,6 +239,7 @@ export type LeagueState = {
   roundResults: RoundResult[];
   activity: ActivityItem[];
   proposals: RuleProposal[];
+  proposalHistory: ProposalHistoryItem[];
   notifications: NotificationItem[];
   unreadCount: number;
 };
@@ -226,6 +254,13 @@ export type RuleProposal = {
   total: number;
   myVote: boolean | null;
   mine: boolean;
+};
+
+export type ProposalHistoryItem = {
+  id: string;
+  summary: string;
+  status: "approved" | "rejected" | "cancelled";
+  resolvedAt: string | null;
 };
 
 export type NotificationItem = {

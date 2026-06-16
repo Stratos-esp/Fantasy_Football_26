@@ -3,15 +3,32 @@
 import { useState } from "react";
 import { AlertTriangle, Check, Copy, FastForward, Gavel, LockKeyhole, Minus, Play, Plus, RotateCcw, Shield, ThumbsDown, ThumbsUp, Users, X } from "lucide-react";
 import { timeAgo } from "@/lib/client";
-import type { LeagueRules, LeagueSettings, LeagueState } from "@/lib/types";
+import type { LeagueRules, LeagueSettings, LeagueState, MarketSettings } from "@/lib/types";
 import type { Notify } from "@/components/fantasy-app";
 import { SettingRow, Toggle } from "@/components/ui";
 
 type Act = (url: string, body?: unknown, method?: "POST" | "PUT") => Promise<boolean>;
 
+// ISO -> valor para <input type="datetime-local"> en hora local.
+function isoToLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
 export function AdminView({ state, act, notify }: { state: LeagueState; act: Act; notify: Notify }) {
   const [busy, setBusy] = useState(false);
   const [simCount, setSimCount] = useState(3);
+  const [lockInput, setLockInput] = useState(isoToLocalInput(state.league.lineupLocksAt));
+
+  async function saveLock(value: string) {
+    setBusy(true);
+    const ok = await act(`/api/league/${state.league.id}/matchday`, { locksAt: value || null }, "PUT");
+    setBusy(false);
+    if (ok) notify(value ? "Cierre de jornada guardado." : "Cierre de jornada quitado.");
+  }
 
   function copyInvite() {
     void navigator.clipboard?.writeText(state.league.inviteCode);
@@ -62,6 +79,21 @@ export function AdminView({ state, act, notify }: { state: LeagueState; act: Act
         </section>
       )}
 
+      {state.league.isAdmin && (
+        <section className="panel">
+          <div className="panel-head"><div><span className="kicker">JORNADA</span><h2>Cierre de alineaciones</h2></div></div>
+          <div className="sim-body">
+            <p>Fija la fecha y hora límite para cambiar alineaciones (y pagar cláusulas) en la jornada {state.league.currentMatchday}. Déjalo vacío para no poner cierre.</p>
+            <div className="lock-form">
+              <input type="datetime-local" value={lockInput} onChange={(event) => setLockInput(event.target.value)} />
+              <button className="button button-small" disabled={busy} onClick={() => saveLock(lockInput)}>Guardar cierre</button>
+              {state.league.lineupLocksAt && <button className="ghost-button" disabled={busy} onClick={() => { setLockInput(""); saveLock(""); }}>Quitar cierre</button>}
+            </div>
+            {state.league.lineupLocksAt && <small className="settings-help">Cierre actual: {new Date(state.league.lineupLocksAt).toLocaleString("es-ES")}</small>}
+          </div>
+        </section>
+      )}
+
       <section className="panel members-panel">
         <div className="panel-head">
           <div><span className="kicker">GESTIÓN</span><h2>Miembros de la liga</h2></div>
@@ -94,30 +126,11 @@ export function AdminView({ state, act, notify }: { state: LeagueState; act: Act
 }
 
 export function SettingsView({ state, act, notify, theme, setTheme }: { state: LeagueState; act: Act; notify: Notify; theme: string; setTheme: (theme: string) => void }) {
-  const [settings, setSettings] = useState<LeagueSettings>(state.league.settings);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [resetText, setResetText] = useState("");
   const [resetting, setResetting] = useState(false);
   const [teamName, setTeamName] = useState(state.myMember.teamName);
   const [savingTeam, setSavingTeam] = useState(false);
   const isAdmin = state.league.isAdmin;
-
-  function update<K extends keyof LeagueSettings>(key: K, value: LeagueSettings[K]) {
-    setSettings((current) => ({ ...current, [key]: value }));
-    setSaved(false);
-  }
-  function updateMarket(key: keyof LeagueSettings["market"]) {
-    setSettings((current) => ({ ...current, market: { ...current.market, [key]: !current.market[key] } }));
-    setSaved(false);
-  }
-
-  async function save() {
-    setSaving(true);
-    const ok = await act(`/api/league/${state.league.id}/proposals`, { action: "create", summary: "Cambio de reglas de la liga", settings });
-    setSaving(false);
-    if (ok) { setSaved(true); notify("Propuesta de reglas enviada a votación."); }
-  }
 
   async function reset() {
     if (resetText.trim().toUpperCase() !== "REINICIAR") {
@@ -145,12 +158,6 @@ export function SettingsView({ state, act, notify, theme, setTheme }: { state: L
   }
 
   const themes: [string, string][] = [["stratos", "Verde"], ["classic", "Claro suave"], ["midnight", "Noche azul"], ["sand", "Grafito cálido"]];
-  const marketRows: [keyof LeagueSettings["market"], string, string][] = [
-    ["bids", "Pujas", "Subastas diarias con ofertas ocultas"],
-    ["fixedPrice", "Precio fijo", "Compra inmediata por el precio marcado"],
-    ["clauses", "Cláusulas", "Roba jugadores pagando su cláusula"],
-    ["directTransfers", "Traspasos", "Ofertas directas entre miembros"],
-  ];
 
   return (
     <div className="settings-layout">
@@ -180,60 +187,10 @@ export function SettingsView({ state, act, notify, theme, setTheme }: { state: L
         </div>
 
         <div className="settings-section">
-          <span className="kicker">ALINEACIÓN</span>
-          <h2>Once y banquillo {!isAdmin && <small className="settings-readonly">(solo lectura)</small>}</h2>
-          <SettingRow title="Capitán" text="Un jugador con bonificación de puntos">
-            <Toggle checked={settings.captain} disabled={!isAdmin} onChange={() => update("captain", !settings.captain)} label="Activar capitán" />
-          </SettingRow>
-          {settings.captain && (
-            <SettingRow title="Multiplicador del capitán" text="Se aplica sobre sus puntos de la jornada">
-              <select value={settings.captainMultiplier} disabled={!isAdmin} onChange={(event) => update("captainMultiplier", Number(event.target.value))}>
-                <option value="1.25">x1,25</option><option value="1.5">x1,5</option><option value="2">x2</option>
-              </select>
-            </SettingRow>
-          )}
-          <SettingRow title="Banquillo" text="Suplentes con sustituciones automáticas">
-            <Toggle checked={settings.bench} disabled={!isAdmin} onChange={() => update("bench", !settings.bench)} label="Activar banquillo" />
-          </SettingRow>
-          {settings.bench && (
-            <SettingRow title="Plazas de banquillo" text="Número máximo de suplentes">
-              <div className="stepper">
-                <button disabled={!isAdmin} onClick={() => update("benchSlots", Math.max(1, settings.benchSlots - 1))}><Minus /></button>
-                <strong>{settings.benchSlots}</strong>
-                <button disabled={!isAdmin} onClick={() => update("benchSlots", Math.min(7, settings.benchSlots + 1))}><Plus /></button>
-              </div>
-            </SettingRow>
-          )}
+          <span className="kicker">REGLAS DE LA LIGA</span>
+          <h2>Se deciden por votación</h2>
+          <small className="settings-help">Las reglas de alineación, mercado, puntuación y economía se proponen y se votan en la pestaña <strong>Normas</strong>. Cualquier miembro puede proponer un cambio y se aplica con la mayoría de la liga.</small>
         </div>
-
-        <div className="settings-section">
-          <span className="kicker">MERCADO</span>
-          <h2>Sistemas permitidos</h2>
-          {marketRows.map(([key, title, text]) => (
-            <SettingRow key={key} title={title} text={text}>
-              <Toggle checked={settings.market[key]} disabled={!isAdmin} onChange={() => updateMarket(key)} label={`Activar ${title}`} />
-            </SettingRow>
-          ))}
-          {settings.market.bids && (
-            <SettingRow title="Pujas visibles" text="Muestra cuántas pujas ha recibido cada jugador del mercado">
-              <Toggle checked={settings.market.visibleBids} disabled={!isAdmin} onChange={() => updateMarket("visibleBids")} label="Pujas visibles" />
-            </SettingRow>
-          )}
-          <SettingRow title="Tamaño del mercado" text="Jugadores en subasta simultánea">
-            <div className="stepper">
-              <button disabled={!isAdmin} onClick={() => update("marketSize", Math.max(4, settings.marketSize - 1))}><Minus /></button>
-              <strong>{settings.marketSize}</strong>
-              <button disabled={!isAdmin} onClick={() => update("marketSize", Math.min(16, settings.marketSize + 1))}><Plus /></button>
-            </div>
-          </SettingRow>
-        </div>
-
-        {isAdmin && (
-          <div className="settings-save">
-            <span>Los cambios de reglas se envían a votación de la liga (mayoría).</span>
-            <button className="button" disabled={saving} onClick={save}>{saved ? <><Check /> Propuesta enviada</> : saving ? "Enviando..." : "Proponer cambios"}</button>
-          </div>
-        )}
 
         {isAdmin && (
           <div className="settings-section danger-zone">
@@ -258,12 +215,36 @@ const RULE_LABELS: Record<keyof LeagueRules, string> = {
   negativeBalancePenalty: "Penalización por saldo negativo",
   moneyPerPoint: "Dinero por punto",
   clauseLimitPerDay: "Límite de clausulazos/24h",
+  clauseMinHoursBeforeLock: "Horas mín. antes del cierre",
 };
+const MARKET_LABELS: Record<keyof MarketSettings, string> = {
+  bids: "Pujas",
+  fixedPrice: "Precio fijo",
+  clauses: "Cláusulas",
+  directTransfers: "Traspasos",
+  visibleBids: "Pujas visibles",
+};
+const MARKET_TEXTS: Record<keyof MarketSettings, string> = {
+  bids: "Subastas diarias con ofertas ocultas",
+  fixedPrice: "Compra inmediata por el precio marcado",
+  clauses: "Roba jugadores pagando su cláusula",
+  directTransfers: "Ofertas directas entre miembros",
+  visibleBids: "Muestra cuántas pujas tiene cada jugador",
+};
+const onoff = (value: boolean) => (value ? "sí" : "no");
 
-function describeRuleChanges(current: LeagueRules, next: LeagueRules): string {
+function describeSettingsChanges(a: LeagueSettings, b: LeagueSettings): string {
   const parts: string[] = [];
   (Object.keys(RULE_LABELS) as (keyof LeagueRules)[]).forEach((key) => {
-    if (current[key] !== next[key]) parts.push(`${RULE_LABELS[key]}: ${current[key]} → ${next[key]}`);
+    if (a.rules[key] !== b.rules[key]) parts.push(`${RULE_LABELS[key]}: ${a.rules[key]} → ${b.rules[key]}`);
+  });
+  if (a.captain !== b.captain) parts.push(`Capitán: ${onoff(a.captain)} → ${onoff(b.captain)}`);
+  if (a.captainMultiplier !== b.captainMultiplier) parts.push(`Multiplicador capitán: x${a.captainMultiplier} → x${b.captainMultiplier}`);
+  if (a.bench !== b.bench) parts.push(`Banquillo: ${onoff(a.bench)} → ${onoff(b.bench)}`);
+  if (a.benchSlots !== b.benchSlots) parts.push(`Plazas de banquillo: ${a.benchSlots} → ${b.benchSlots}`);
+  if (a.marketSize !== b.marketSize) parts.push(`Tamaño de mercado: ${a.marketSize} → ${b.marketSize}`);
+  (Object.keys(MARKET_LABELS) as (keyof MarketSettings)[]).forEach((key) => {
+    if (a.market[key] !== b.market[key]) parts.push(`${MARKET_LABELS[key]}: ${onoff(a.market[key])} → ${onoff(b.market[key])}`);
   });
   return parts.join("; ");
 }
@@ -271,19 +252,26 @@ function describeRuleChanges(current: LeagueRules, next: LeagueRules): string {
 export function NormasView({ state, act, notify }: { state: LeagueState; act: Act; notify: Notify }) {
   const isAdmin = state.league.isAdmin;
   const proposalsUrl = `/api/league/${state.league.id}/proposals`;
-  const [rules, setRules] = useState<LeagueRules>(state.league.settings.rules);
+  const [settings, setSettings] = useState<LeagueSettings>(state.league.settings);
+  const rules = settings.rules;
   const [busy, setBusy] = useState(false);
 
   function update<K extends keyof LeagueRules>(key: K, value: LeagueRules[K]) {
-    setRules((current) => ({ ...current, [key]: value }));
+    setSettings((current) => ({ ...current, rules: { ...current.rules, [key]: value } }));
+  }
+  function updateSetting<K extends keyof LeagueSettings>(key: K, value: LeagueSettings[K]) {
+    setSettings((current) => ({ ...current, [key]: value }));
+  }
+  function updateMarket(key: keyof MarketSettings) {
+    setSettings((current) => ({ ...current, market: { ...current.market, [key]: !current.market[key] } }));
   }
 
-  const changes = describeRuleChanges(state.league.settings.rules, rules);
+  const changes = describeSettingsChanges(state.league.settings, settings);
 
   async function propose() {
-    if (!changes) { notify("No has cambiado ninguna norma.", "error"); return; }
+    if (!changes) { notify("No has cambiado ningún ajuste.", "error"); return; }
     setBusy(true);
-    const ok = await act(proposalsUrl, { action: "create", summary: changes, settings: { ...state.league.settings, rules } });
+    const ok = await act(proposalsUrl, { action: "create", summary: changes, settings });
     setBusy(false);
     if (ok) notify("Propuesta enviada a votación.");
   }
@@ -323,6 +311,66 @@ export function NormasView({ state, act, notify }: { state: LeagueState; act: Ac
               </div>
             </div>
           ))}
+          {state.proposalHistory.length > 0 && (
+            <div className="proposal-history">
+              <span className="kicker">HISTORIAL RECIENTE</span>
+              {state.proposalHistory.map((item) => (
+                <div className={`proposal-hist ${item.status}`} key={item.id}>
+                  <span>{item.summary}</span>
+                  <em>{item.status === "approved" ? "Aprobada" : item.status === "rejected" ? "Rechazada" : "Retirada"}</em>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="settings-section">
+          <span className="kicker">ALINEACIÓN</span>
+          <h2>Once y banquillo</h2>
+          <SettingRow title="Capitán" text="Un jugador con bonificación de puntos">
+            <Toggle checked={settings.captain} onChange={() => updateSetting("captain", !settings.captain)} label="Activar capitán" />
+          </SettingRow>
+          {settings.captain && (
+            <SettingRow title="Multiplicador del capitán" text="Se aplica sobre sus puntos de la jornada">
+              <select value={settings.captainMultiplier} onChange={(event) => updateSetting("captainMultiplier", Number(event.target.value))}>
+                <option value="1.25">x1,25</option><option value="1.5">x1,5</option><option value="2">x2</option>
+              </select>
+            </SettingRow>
+          )}
+          <SettingRow title="Banquillo" text="Suplentes con sustituciones automáticas">
+            <Toggle checked={settings.bench} onChange={() => updateSetting("bench", !settings.bench)} label="Activar banquillo" />
+          </SettingRow>
+          {settings.bench && (
+            <SettingRow title="Plazas de banquillo" text="Número máximo de suplentes">
+              <div className="stepper">
+                <button onClick={() => updateSetting("benchSlots", Math.max(1, settings.benchSlots - 1))}><Minus /></button>
+                <strong>{settings.benchSlots}</strong>
+                <button onClick={() => updateSetting("benchSlots", Math.min(7, settings.benchSlots + 1))}><Plus /></button>
+              </div>
+            </SettingRow>
+          )}
+        </div>
+
+        <div className="settings-section">
+          <span className="kicker">MERCADO</span>
+          <h2>Sistemas permitidos</h2>
+          {(["bids", "fixedPrice", "clauses", "directTransfers"] as (keyof MarketSettings)[]).map((key) => (
+            <SettingRow key={key} title={MARKET_LABELS[key]} text={MARKET_TEXTS[key]}>
+              <Toggle checked={settings.market[key]} onChange={() => updateMarket(key)} label={`Activar ${MARKET_LABELS[key]}`} />
+            </SettingRow>
+          ))}
+          {settings.market.bids && (
+            <SettingRow title="Pujas visibles" text={MARKET_TEXTS.visibleBids}>
+              <Toggle checked={settings.market.visibleBids} onChange={() => updateMarket("visibleBids")} label="Pujas visibles" />
+            </SettingRow>
+          )}
+          <SettingRow title="Tamaño del mercado" text="Jugadores en subasta simultánea">
+            <div className="stepper">
+              <button onClick={() => updateSetting("marketSize", Math.max(4, settings.marketSize - 1))}><Minus /></button>
+              <strong>{settings.marketSize}</strong>
+              <button onClick={() => updateSetting("marketSize", Math.min(16, settings.marketSize + 1))}><Plus /></button>
+            </div>
+          </SettingRow>
         </div>
 
         <div className="settings-section">
@@ -360,7 +408,14 @@ export function NormasView({ state, act, notify }: { state: LeagueState; act: Ac
               <button onClick={() => update("clauseLimitPerDay", Math.min(50, rules.clauseLimitPerDay + 1))}><Plus /></button>
             </div>
           </SettingRow>
-          <small className="settings-help">Ejemplo: con 50.000 € por punto, una jornada de 40 puntos te da 2 M€.</small>
+          <SettingRow title="Horas mínimas antes del cierre para clausulazos" text="No se pueden pagar cláusulas si faltan menos de estas horas para el cierre de la jornada (0 = sin límite)">
+            <div className="stepper">
+              <button onClick={() => update("clauseMinHoursBeforeLock", Math.max(0, rules.clauseMinHoursBeforeLock - 1))}><Minus /></button>
+              <strong>{rules.clauseMinHoursBeforeLock === 0 ? "—" : `${rules.clauseMinHoursBeforeLock}h`}</strong>
+              <button onClick={() => update("clauseMinHoursBeforeLock", Math.min(240, rules.clauseMinHoursBeforeLock + 1))}><Plus /></button>
+            </div>
+          </SettingRow>
+          <small className="settings-help">Ejemplo: con 50.000 € por punto, una jornada de 40 puntos te da 2 M€. El cierre de la jornada lo fija el admin en Administración.</small>
         </div>
 
         <div className="settings-save">

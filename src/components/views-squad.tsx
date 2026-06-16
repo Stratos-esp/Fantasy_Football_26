@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Check, Crown, LockKeyhole, Plus, Shirt, Sparkles, X } from "lucide-react";
-import { money, moneyInput, nameAndSurname, pitchCoordinates, positionOrder } from "@/lib/client";
+import { countdown, money, moneyInput, nameAndSurname, pitchCoordinates, positionOrder } from "@/lib/client";
 import { formations, type LeagueState, type SquadEntry } from "@/lib/types";
 import type { Notify } from "@/components/fantasy-app";
 import { PlayerAvatar, PositionTag, TeamBadge } from "@/components/ui";
@@ -89,6 +89,8 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
   const starterIds = slots.filter((id): id is string => Boolean(id));
   const benchIds = settings.bench ? bench : [];
   const emptyStarters = slots.filter((id) => id === null).length;
+  const locksAt = state.league.lineupLocksAt;
+  const locked = locksAt ? new Date(locksAt).getTime() <= Date.now() : false;
 
   function changeFormation(next: string) {
     const filled = autofill(state.squad, next);
@@ -190,7 +192,7 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
             <select value={formation} onChange={(event) => changeFormation(event.target.value)}>
               {Object.keys(formations).map((option) => <option key={option} value={option}>{option}</option>)}
             </select>
-            <button className="button button-small" disabled={saving || !dirty} onClick={save}>{saving ? "Guardando..." : dirty ? "Guardar" : <><Check size={14} /> Guardado</>}</button>
+            <button className="button button-small" disabled={saving || !dirty || locked} onClick={save}>{locked ? "Cerrada" : saving ? "Guardando..." : dirty ? "Guardar" : <><Check size={14} /> Guardado</>}</button>
           </div>
         </div>
         <div className="pitch full-pitch vertical-pitch">
@@ -217,7 +219,7 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
             );
           })}
         </div>
-        <div className="squad-hint"><Sparkles /> Toca un titular para cambiarlo{settings.captain ? " o nombrarlo capitán" : ""}. Si un hueco queda vacío (por una venta o cláusula), tócalo para asignar otro jugador.</div>
+        <div className="squad-hint"><Sparkles /> {locked ? "La alineación está cerrada para esta jornada." : locksAt ? `Cierre de la alineación en ${countdown(locksAt)}.` : "Toca un titular para cambiarlo"}{!locked && !locksAt && (settings.captain ? " o nombrarlo capitán" : "")}{!locked && " Si un hueco queda vacío (por una venta o cláusula), tócalo para asignar otro jugador."}</div>
         {settings.bench && (
           <div className="bench-strip">
             <span className="kicker">BANQUILLO ({bench.length}/{settings.benchSlots})</span>

@@ -545,6 +545,7 @@ a { color:inherit; text-decoration:none; }
   /* --- Listas y controles más grandes en móvil --- */
   .player-avatar.small{width:44px;height:44px;font-size:10px}
   .squad-row{grid-template-columns:48px 48px 1fr 48px;padding:11px 14px}
+  .squad-row:nth-of-type(n+10){display:grid}
   .sell-row{grid-template-columns:48px 1fr auto auto}
   .squad-row strong,.sell-row strong,.rival-player-row strong{font-size:14px}
   .squad-row small,.sell-row small,.rival-player-row small{font-size:11px}
@@ -607,6 +608,11 @@ a { color:inherit; text-decoration:none; }
 @media (max-width: 760px){
   .matchday-stats{grid-template-columns:1fr 1fr}
 }
+.matchday-rounds select{border:1px solid var(--line);background:var(--surface-2);color:var(--ink);border-radius:8px;padding:7px 10px;font-size:12px}
+.fixture-list article.clickable-row{cursor:pointer}
+.fixture-list article.clickable-row:hover{background:var(--surface-2);border-radius:9px}
+button.points-bar{border:0;background:transparent;cursor:pointer;font:inherit}
+.points-bar.active i{outline:2px solid var(--accent);outline-offset:1px}
 
 /* Convocatoria: estados visuales y gestión de roles */
 .convocatoria-meta{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap}
@@ -635,3 +641,15 @@ a { color:inherit; text-decoration:none; }
 .vote-btn:disabled{opacity:.5;cursor:default}
 .vote-btn.yes-on{background:color-mix(in srgb,var(--positive) 16%,var(--surface));border-color:var(--positive);color:var(--positive)}
 .vote-btn.no-on{background:color-mix(in srgb,var(--danger) 14%,var(--surface));border-color:var(--danger);color:var(--danger)}
+.proposal-history{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.proposal-history .kicker{display:block;margin-bottom:8px}
+.proposal-hist{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;font-size:11px;color:var(--muted);border-bottom:1px solid var(--line)}
+.proposal-hist:last-child{border-bottom:0}
+.proposal-hist span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.proposal-hist em{font-style:normal;font-weight:800;flex:0 0 auto}
+.proposal-hist.approved em{color:var(--positive)}
+.proposal-hist.rejected em{color:var(--danger)}
+
+/* Cierre de jornada (admin) */
+.lock-form{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.lock-form input{border:1px solid var(--line);background:var(--surface-2);border-radius:9px;padding:9px 11px;color:var(--ink);font:inherit;outline:0}

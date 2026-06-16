@@ -2,10 +2,11 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { calculateFantasyPoints, defaultScoringRules, type PlayerMatchStats, type ScoringRules } from "@/lib/scoring";
 import { laligaTeams, seedPlayerExternalId } from "@/lib/laliga-data";
+import { proposalOutcome } from "@/lib/voting";
 import {
   defaultLeagueSettings, formations, parseLeagueSettings,
   type ActivityItem, type ApiPlayer, type LeagueSettings, type LeagueState, type LineupState,
-  type MarketListing, type Position,
+  type MarketListing, type MatchdayDetail, type Position,
 } from "@/lib/types";
 
 export class ServiceError extends Error {
@@ -554,22 +555,19 @@ async function addToCurrentBench(db: Db, league: LeagueRow, memberId: string, pl
   });
 }
 
-// Cuando un jugador sale de un equipo (venta, cláusula, oferta...), lo quitamos
-// de su alineación de la jornada actual. Si era titular, ascendemos
-// automáticamente a un suplente de la misma posición; si no hay recambio, el
-// hueco queda vacío.
-async function autoFillVacatedSlot(db: Db, league: LeagueRow, memberId: string, leavingPlayerId: string) {
+// Decide (sin modificar nada) qué suplente debería ocupar el hueco que dejará un
+// titular al salir del equipo, para aplicarlo tras la transferencia. Si el
+// jugador no era titular o no hay recambio de su posición, devuelve null.
+async function planVacancyPromotion(db: Db, league: LeagueRow, memberId: string, leavingPlayerId: string) {
   const matchday = await activeMatchday(db, league);
-  if (!matchday) return;
+  if (!matchday) return null;
   const { data: lineup } = await db.from("fantasy_lineups").select("id").eq("matchday_id", matchday.id).eq("league_member_id", memberId).maybeSingle();
-  if (!lineup) return;
+  if (!lineup) return null;
   const { data: rows } = await db.from("fantasy_lineup_players").select("player_id, slot, is_starter, bench_order").eq("lineup_id", lineup.id);
   const leaving = (rows ?? []).find((r) => r.player_id === leavingPlayerId);
-  if (!leaving) return;
-  await db.from("fantasy_lineup_players").delete().eq("lineup_id", lineup.id).eq("player_id", leavingPlayerId);
-  if (!leaving.is_starter) return;
+  if (!leaving || !leaving.is_starter) return null;
   const benchRows = (rows ?? []).filter((r) => !r.is_starter && r.player_id !== leavingPlayerId);
-  if (benchRows.length === 0) return;
+  if (benchRows.length === 0) return null;
   const ids = [leavingPlayerId, ...benchRows.map((r) => r.player_id as string)];
   const { data: positions } = await db.from("fantasy_players").select("id, position").in("id", ids);
   const positionById = new Map((positions ?? []).map((p) => [p.id as string, p.position as string]));
@@ -577,8 +575,8 @@ async function autoFillVacatedSlot(db: Db, league: LeagueRow, memberId: string, 
   const replacement = benchRows
     .filter((r) => positionById.get(r.player_id as string) === leavingPosition)
     .sort((a, b) => (a.bench_order ?? 9) - (b.bench_order ?? 9))[0];
-  if (!replacement) return;
-  await db.from("fantasy_lineup_players").update({ is_starter: true, slot: leaving.slot, bench_order: null }).eq("lineup_id", lineup.id).eq("player_id", replacement.player_id);
+  if (!replacement) return null;
+  return { lineupId: lineup.id as string, slot: leaving.slot as number, subId: replacement.player_id as string };
 }
 
 function cleanPgError(message: string): string {
@@ -590,6 +588,10 @@ function cleanPgError(message: string): string {
 export async function executeTransfer(db: Db, args: TransferArgs) {
   const settings = leagueSettings(args.league);
   const amount = Math.round(args.amount);
+
+  // Antes de transferir, planeamos el recambio del hueco (la RPC quita al
+  // jugador de las alineaciones, así que hay que decidir el suplente ahora).
+  const promotion = args.fromMemberId ? await planVacancyPromotion(db, args.league, args.fromMemberId, args.playerId) : null;
 
   const { error } = await db.rpc("fantasy_execute_transfer", {
     p_league_id: args.league.id,
@@ -604,25 +606,14 @@ export async function executeTransfer(db: Db, args: TransferArgs) {
   });
   if (error) throw new ServiceError(cleanPgError(error.message), 400);
 
-  // El jugador cambia de dueño: cancela cualquier otro anuncio abierto suyo
-  // (p. ej. una venta a precio fijo) y las ofertas directas pendientes, para
-  // que no quede en el mercado un jugador que ya está en una plantilla.
-  await db
-    .from("fantasy_market_listings")
-    .update({ status: "cancelled", resolved_at: new Date().toISOString() })
-    .eq("league_id", args.league.id)
-    .eq("player_id", args.playerId)
-    .eq("status", "open")
-    .neq("id", args.listingId ?? "00000000-0000-0000-0000-000000000000");
-  await db
-    .from("fantasy_direct_offers")
-    .update({ status: "cancelled", resolved_at: new Date().toISOString() })
-    .eq("league_id", args.league.id)
-    .eq("player_id", args.playerId)
-    .eq("status", "pending");
-
-  // Ajustes no críticos fuera de la transacción de dinero.
-  if (args.fromMemberId) await autoFillVacatedSlot(db, args.league, args.fromMemberId, args.playerId);
+  // La RPC ya cancela ventas/ofertas pendientes del jugador y lo saca de las
+  // alineaciones. Aquí solo ascendemos un suplente al hueco que deja, si lo hay.
+  if (promotion) {
+    await db.from("fantasy_lineup_players")
+      .update({ is_starter: true, slot: promotion.slot, bench_order: null })
+      .eq("lineup_id", promotion.lineupId)
+      .eq("player_id", promotion.subId);
+  }
   if (args.toMemberId) await addToCurrentBench(db, args.league, args.toMemberId, args.playerId);
   await audit(db, args.league.id, args.actorUserId, `transfer_${args.kind}`, args.detail);
 }
@@ -819,6 +810,8 @@ export async function simulateMatchday(db: Db, league: LeagueRow, actorUserId: s
     const moneyAward = Math.round(Math.max(0, total) * settings.rules.moneyPerPoint);
     await db.from("fantasy_lineups").update({ total_points: total }).eq("id", lineup.id);
     await db.from("fantasy_league_members").update({ total_points: Number(member.total_points) + total, budget: Number(member.budget) + moneyAward }).eq("id", member.id);
+    const moneyNote = moneyAward > 0 ? ` y ganaste ${(moneyAward / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 1 })} M€` : "";
+    await notify(db, member.user_id as string, league.id, "matchday_played", `Jornada ${matchday.number} disputada`, `Tu equipo sumó ${Math.round(total)} pts${moneyNote}.`);
   }
 
   // Evolución de valores de mercado según rendimiento.
@@ -1005,6 +998,7 @@ export async function getLeagueState(db: Db, league: LeagueRow, member: MemberRo
             teamShort: apiPlayer.teamShort,
             teamColor: apiPlayer.teamColor,
             teamLogo: apiPlayer.teamLogo,
+            photo: apiPlayer.photo,
             points: pointsByPlayer.get(p.player_id as string) ?? 0,
             starter: Boolean(p.is_starter),
           };
@@ -1020,6 +1014,11 @@ export async function getLeagueState(db: Db, league: LeagueRow, member: MemberRo
 
   // Mi alineación actual.
   const matchday = await activeMatchday(db, league);
+  let lineupLocksAt: string | null = null;
+  if (matchday) {
+    const { data: md } = await db.from("fantasy_matchdays").select("locks_at").eq("id", matchday.id).maybeSingle();
+    lineupLocksAt = (md?.locks_at as string | null) ?? null;
+  }
   const { data: finishedMatchdays } = await db
     .from("fantasy_matchdays")
     .select("id, number")
@@ -1184,6 +1183,21 @@ export async function getLeagueState(db: Db, league: LeagueRow, member: MemberRo
     };
   });
 
+  // Historial de propuestas ya resueltas.
+  const { data: historyRows } = await db
+    .from("fantasy_rule_proposals")
+    .select("id, summary, status, resolved_at")
+    .eq("league_id", league.id)
+    .neq("status", "pending")
+    .order("resolved_at", { ascending: false })
+    .limit(6);
+  const proposalHistory = ((historyRows ?? []) as { id: string; summary: string; status: string; resolved_at: string | null }[]).map((r) => ({
+    id: r.id,
+    summary: r.summary,
+    status: r.status as "approved" | "rejected" | "cancelled",
+    resolvedAt: r.resolved_at,
+  }));
+
   const mySquad = squads.filter((row) => row.league_member_id === member.id);
   const rivalSquads = squads.filter((row) => row.league_member_id !== member.id);
 
@@ -1222,6 +1236,7 @@ export async function getLeagueState(db: Db, league: LeagueRow, member: MemberRo
       startingBudget: Number(league.starting_budget),
       settings,
       isAdmin: isAdmin(member),
+      lineupLocksAt,
     },
     myMember: { id: member.id, budget: Number(member.budget), teamName: member.team_name, role: member.role },
     members: membersData
@@ -1261,6 +1276,7 @@ export async function getLeagueState(db: Db, league: LeagueRow, member: MemberRo
     roundResults,
     activity,
     proposals,
+    proposalHistory,
     notifications,
     unreadCount,
   };
@@ -1278,14 +1294,67 @@ async function resolveProposalIfDecided(db: Db, league: LeagueRow, proposalId: s
   const yes = cast.filter((v) => v.approve).length;
   const no = cast.filter((v) => !v.approve).length;
   const summary = (proposal.summary as string).slice(0, 120);
-  if (yes * 2 > total) {
+  const outcome = proposalOutcome(yes, no, total, cast.length >= total, force);
+  if (outcome === "approved") {
     await db.from("fantasy_leagues").update({ settings: proposal.settings }).eq("id", league.id);
     await db.from("fantasy_rule_proposals").update({ status: "approved", resolved_at: new Date().toISOString() }).eq("id", proposalId);
     await audit(db, league.id, null, "proposal_approved", `Propuesta aprobada por mayoría: ${summary}`);
-  } else if (no * 2 >= total || cast.length >= total || force) {
+  } else if (outcome === "rejected") {
     await db.from("fantasy_rule_proposals").update({ status: "rejected", resolved_at: new Date().toISOString() }).eq("id", proposalId);
     await audit(db, league.id, null, "proposal_rejected", `Propuesta rechazada: ${summary}`);
   }
+}
+
+// Detalle de una jornada: todas las alineaciones con los puntos de cada jugador.
+export async function getMatchdayDetail(db: Db, league: LeagueRow, number: number): Promise<MatchdayDetail> {
+  const { data: md } = await db.from("fantasy_matchdays").select("id, number, status").eq("league_id", league.id).eq("number", number).maybeSingle();
+  if (!md) return { number, finished: false, members: [] };
+  const players = await fetchPlayers(db, league.season);
+  const playersById = new Map(players.map((p) => [p.id, p]));
+  const emptyStats = new Map<string, { season: number; last: number | null }>();
+  const { data: memberRows } = await db
+    .from("fantasy_league_members")
+    .select("id, team_name, color, user:fantasy_users(display_name)")
+    .eq("league_id", league.id);
+  const membersData = (memberRows ?? []) as unknown as { id: string; team_name: string; color: string | null; user: { display_name: string } | null }[];
+  const { data: lineups } = await db.from("fantasy_lineups").select("id, league_member_id, formation, captain_player_id, total_points").eq("matchday_id", md.id);
+  const lineupIds = (lineups ?? []).map((l) => l.id);
+  const { data: lps } = lineupIds.length > 0
+    ? await db.from("fantasy_lineup_players").select("lineup_id, player_id, slot, is_starter").in("lineup_id", lineupIds)
+    : { data: [] };
+  const { data: scores } = await db.from("fantasy_player_scores").select("player_id, points").eq("matchday_id", md.id).eq("league_id", league.id);
+  const scoreById = new Map((scores ?? []).map((s) => [s.player_id as string, Number(s.points)]));
+
+  const members = membersData.map((m) => {
+    const lineup = (lineups ?? []).find((l) => l.league_member_id === m.id);
+    const rows = lineup ? (lps ?? []).filter((p) => p.lineup_id === lineup.id).sort((a, b) => (a.slot as number) - (b.slot as number)) : [];
+    return {
+      memberId: m.id,
+      teamName: m.team_name,
+      displayName: m.user?.display_name ?? "—",
+      color: m.color ?? "#65d5ff",
+      points: Number(lineup?.total_points ?? 0),
+      formation: (lineup?.formation as string) ?? "4-4-2",
+      captainPlayerId: (lineup?.captain_player_id as string | null) ?? null,
+      players: rows.map((p) => {
+        const row = playersById.get(p.player_id as string);
+        const api = row ? toApiPlayer(row, emptyStats) : null;
+        return {
+          playerId: p.player_id as string,
+          name: api?.name ?? "Jugador",
+          team: api?.team ?? "—",
+          teamColor: api?.teamColor ?? "#3b6c4f",
+          teamLogo: api?.teamLogo ?? null,
+          photo: api?.photo ?? null,
+          position: api?.position ?? "MED",
+          points: scoreById.get(p.player_id as string) ?? 0,
+          starter: Boolean(p.is_starter),
+        };
+      }),
+    };
+  }).sort((a, b) => b.points - a.points);
+
+  return { number: md.number, finished: md.status === "finished", members };
 }
 
 export async function createProposal(db: Db, league: LeagueRow, member: MemberRow, actorUserId: string, summary: string, rawSettings: unknown) {
@@ -1299,6 +1368,11 @@ export async function createProposal(db: Db, league: LeagueRow, member: MemberRo
   if (error || !proposal) throw new ServiceError("No se pudo crear la propuesta.", 500);
   await db.from("fantasy_rule_votes").insert({ proposal_id: proposal.id, member_id: member.id, approve: true });
   await audit(db, league.id, actorUserId, "proposal_created", `${member.team_name} propuso: ${clean}`);
+  // Avisa al resto de la liga para que voten.
+  const { data: others } = await db.from("fantasy_league_members").select("user_id").eq("league_id", league.id).neq("id", member.id);
+  for (const other of others ?? []) {
+    await notify(db, other.user_id as string, league.id, "proposal_opened", "Nueva propuesta de normas", `${member.team_name} propone: ${clean}. ¡Entra en Normas y vota!`);
+  }
   await resolveProposalIfDecided(db, league, proposal.id);
   return proposal.id;
 }

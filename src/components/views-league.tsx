@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CircleDollarSign, Crown, Gavel, LockKeyhole, Play, Shield, Shirt, Trophy, X } from "lucide-react";
 import { apiGet, apiPost, money, moneyInput, nameAndSurname, pitchCoordinates, positionOrder, timeAgo } from "@/lib/client";
-import type { LeagueState, RivalSquadEntry } from "@/lib/types";
+import { formations, type LeagueState, type MatchdayDetail, type MatchdayDetailMember, type MatchdayDetailPlayer, type RivalSquadEntry } from "@/lib/types";
 import type { Notify } from "@/components/fantasy-app";
 import { PlayerAvatar, PositionTag, TeamBadge } from "@/components/ui";
 
@@ -32,6 +32,18 @@ export function StandingsView({ state, act, notify }: { state: LeagueState; act:
   const rivalLineup = selectedRival ? state.rivalLineups.find((lineup) => lineup.memberId === selectedRival.id) ?? null : null;
   const rivalById = new Map(rivalSquad.map((player) => [player.id, player]));
   const rivalCoordinates = rivalLineup ? pitchCoordinates(rivalLineup.formation, "vertical") : [];
+
+  // Evolución del usuario por jornada: puntos y posición.
+  const myId = state.myMember.id;
+  const myHistory = state.roundResults
+    .map((round) => {
+      const ranked = [...round.memberPoints].sort((a, b) => b.points - a.points);
+      const points = round.memberPoints.find((m) => m.memberId === myId)?.points ?? 0;
+      return { number: round.number, points, rank: ranked.findIndex((m) => m.memberId === myId) + 1 };
+    })
+    .sort((a, b) => a.number - b.number);
+  const myMaxRound = Math.max(6, ...myHistory.map((r) => Math.abs(r.points)));
+  const myBestRound = myHistory.length > 0 ? myHistory.reduce((best, r) => (r.points > best.points ? r : best)) : null;
 
   async function runMarket(body: unknown, message?: string) {
     setBusy(true);
@@ -94,6 +106,21 @@ export function StandingsView({ state, act, notify }: { state: LeagueState; act:
           <p><span>Jornada actual</span><strong>{state.league.currentMatchday} / {state.league.totalMatchdays}</strong></p>
           <p><span>Miembros</span><strong>{members.length}</strong></p>
         </section>
+        {myHistory.length > 0 && (
+          <section className="panel league-facts">
+            <h3>Tu evolución</h3>
+            <div className="points-bars points-bars-scroll">
+              {myHistory.map((r) => (
+                <div key={r.number} className="points-bar" title={`Jornada ${r.number}: ${Math.round(r.points)} pts · ${r.rank}º`}>
+                  <i className={r.points >= 0 ? "pos" : "neg"} style={{ height: `${Math.max(4, (Math.abs(r.points) / myMaxRound) * 46)}px` }} />
+                  <em>{Math.round(r.points)}</em>
+                  <small>{r.rank}º</small>
+                </div>
+              ))}
+            </div>
+            {myBestRound && <p><span>Mejor jornada</span><strong>J{myBestRound.number} · {Math.round(myBestRound.points)} pts</strong></p>}
+          </section>
+        )}
         <section className="panel round-results-panel">
           <div className="panel-head">
             <div><span className="kicker">RESULTADOS</span><h2>Por jornada</h2></div>
@@ -209,40 +236,58 @@ export function StandingsView({ state, act, notify }: { state: LeagueState; act:
   );
 }
 
+// Coloca los titulares de un once por líneas de la formación para el campo.
+function arrangeStarters(formation: string, players: MatchdayDetailPlayer[]): MatchdayDetailPlayer[] {
+  const shape = formations[formation] ?? formations["4-4-2"];
+  const lines: [string, number][] = [["POR", 1], ["DEF", shape.DEF], ["MED", shape.MED], ["DEL", shape.DEL]];
+  const byPos: Record<string, MatchdayDetailPlayer[]> = { POR: [], DEF: [], MED: [], DEL: [] };
+  for (const p of players.filter((x) => x.starter)) byPos[p.position]?.push(p);
+  const ordered: MatchdayDetailPlayer[] = [];
+  for (const [pos, n] of lines) for (let i = 0; i < n; i += 1) if (byPos[pos][i]) ordered.push(byPos[pos][i]);
+  return ordered;
+}
+
 export function MatchdayView({ state, act, notify }: { state: LeagueState; act: Act; notify: Notify }) {
   const [busy, setBusy] = useState(false);
   const myId = state.myMember.id;
-  const last = state.lastMatchday;
-  const memberName = (id: string) => state.members.find((m) => m.id === id);
+  const rounds = state.roundResults.map((r) => r.number).sort((a, b) => a - b);
+  const latest = rounds.length > 0 ? rounds[rounds.length - 1] : null;
+  const [round, setRound] = useState<number | null>(latest);
+  const [detail, setDetail] = useState<MatchdayDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [openManager, setOpenManager] = useState<string | null>(null);
 
-  const myPoints = last?.memberPoints.find((m) => m.memberId === myId)?.points ?? null;
-  const averagePoints = last && last.memberPoints.length > 0 ? last.memberPoints.reduce((sum, m) => sum + m.points, 0) / last.memberPoints.length : null;
-  const sortedRound = last ? [...last.memberPoints].sort((a, b) => b.points - a.points) : [];
-  const myRoundRank = last ? sortedRound.findIndex((m) => m.memberId === myId) + 1 : null;
-  const roundLeader = sortedRound[0] ? memberName(sortedRound[0].memberId) : null;
-  const best = last?.myPlayerPoints.filter((p) => p.starter).sort((a, b) => b.points - a.points)[0] ?? null;
+  useEffect(() => {
+    if (round === null) { setDetail(null); return; }
+    let active = true;
+    setLoadingDetail(true);
+    apiGet<MatchdayDetail>(`/api/league/${state.league.id}/matchday?number=${round}`).then((result) => {
+      if (!active) return;
+      setDetail(result.ok ? result.data : null);
+      setLoadingDetail(false);
+    });
+    return () => { active = false; };
+  }, [round, state.league.id, state.lastMatchday?.number]);
 
-  // Histórico de mis jornadas: puntos y posición en cada una.
-  const myHistory = state.roundResults
-    .map((round) => {
-      const ranked = [...round.memberPoints].sort((a, b) => b.points - a.points);
-      const points = round.memberPoints.find((m) => m.memberId === myId)?.points ?? 0;
-      return { number: round.number, points, rank: ranked.findIndex((m) => m.memberId === myId) + 1 };
-    })
-    .sort((a, b) => a.number - b.number);
-  const myBestRound = myHistory.reduce((max, r) => Math.max(max, r.points), 0);
-  const maxHistory = Math.max(6, ...myHistory.map((r) => Math.abs(r.points)));
-
-  const seasonSorted = [...state.members].sort((a, b) => b.totalPoints - a.totalPoints);
-  const seasonRank = seasonSorted.findIndex((m) => m.id === myId) + 1;
-  const myTotal = state.members.find((m) => m.id === myId)?.totalPoints ?? 0;
-
-  const captainId = state.lineup.captainPlayerId;
-  const captainEntry = captainId ? last?.myPlayerPoints.find((p) => p.playerId === captainId) ?? null : null;
-  const starters = (last?.myPlayerPoints ?? []).filter((p) => p.starter);
-  const subs = (last?.myPlayerPoints ?? []).filter((p) => !p.starter);
-  const startersTotal = starters.reduce((sum, p) => sum + p.points, 0);
+  const ranked = detail ? detail.members : [];
+  const average = ranked.length > 0 ? ranked.reduce((s, m) => s + m.points, 0) / ranked.length : null;
+  const mine = ranked.find((m) => m.memberId === myId) ?? null;
+  const myRank = mine ? ranked.findIndex((m) => m.memberId === myId) + 1 : null;
+  const captainEntry = mine && mine.captainPlayerId ? mine.players.find((p) => p.playerId === mine.captainPlayerId) ?? null : null;
+  const starters = mine ? mine.players.filter((p) => p.starter) : [];
+  const subs = mine ? mine.players.filter((p) => !p.starter) : [];
+  const startersTotal = starters.reduce((s, p) => s + p.points, 0);
   const scorers = starters.filter((p) => p.points > 0).length;
+  const leader = ranked[0] ?? null;
+
+  // Mi evolución por jornada (de roundResults, ya en el estado).
+  const myHistory = state.roundResults
+    .map((r) => ({ number: r.number, points: r.memberPoints.find((m) => m.memberId === myId)?.points ?? 0 }))
+    .sort((a, b) => a.number - b.number);
+  const maxHistory = Math.max(6, ...myHistory.map((r) => Math.abs(r.points)));
+  const seasonRank = [...state.members].sort((a, b) => b.totalPoints - a.totalPoints).findIndex((m) => m.id === myId) + 1;
+  const myTotal = state.members.find((m) => m.id === myId)?.totalPoints ?? 0;
+  const myBestRound = myHistory.reduce((max, r) => Math.max(max, r.points), 0);
 
   async function simulate() {
     if (!window.confirm(`¿Disputar la jornada ${state.league.currentMatchday}? Se calcularán los puntos de todos los equipos y los valores de mercado se actualizarán.`)) return;
@@ -252,7 +297,7 @@ export function MatchdayView({ state, act, notify }: { state: LeagueState; act: 
     if (ok) notify(`Jornada ${state.league.currentMatchday} disputada. ¡Mira los resultados!`);
   }
 
-  const playerRow = (player: NonNullable<LeagueState["lastMatchday"]>["myPlayerPoints"][number], index: number) => (
+  const playerRow = (player: MatchdayDetailPlayer, index: number, captainId: string | null) => (
     <div key={player.playerId} className={player.points > 0 ? "scored" : ""}>
       <b>{index + 1}</b>
       <PlayerAvatar player={player} small />
@@ -261,45 +306,71 @@ export function MatchdayView({ state, act, notify }: { state: LeagueState; act: 
     </div>
   );
 
+  const openMember = openManager ? ranked.find((m) => m.memberId === openManager) ?? null : null;
+  const openMemberHistory = openManager
+    ? state.roundResults.map((r) => ({ number: r.number, points: r.memberPoints.find((m) => m.memberId === openManager)?.points ?? 0 })).sort((a, b) => a.number - b.number)
+    : [];
+  const openMaxHistory = Math.max(6, ...openMemberHistory.map((r) => Math.abs(r.points)));
+  const openCoords = openMember ? pitchCoordinates(openMember.formation, "vertical") : [];
+  const openStarters = openMember ? arrangeStarters(openMember.formation, openMember.players) : [];
+
+  if (rounds.length === 0) {
+    return (
+      <div className="matchday-layout">
+        <section className="panel matchday-main">
+          <div className="panel-head"><div><span className="kicker">JORNADA</span><h2>Todavía no se ha disputado ninguna jornada</h2></div>
+            {state.league.isAdmin && <button className="button button-small" disabled={busy} onClick={simulate}><Play size={14} /> {busy ? "Disputando..." : `Disputar jornada ${state.league.currentMatchday}`}</button>}
+          </div>
+          <div className="empty-state"><Trophy /><h3>La temporada está lista</h3><p>{state.league.isAdmin ? "Pulsa «Disputar jornada» para calcular los primeros puntos." : "El administrador disputará la primera jornada en breve."}</p></div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="matchday-layout">
       <section className="panel matchday-main">
         <div className="matchday-score">
-          <div><span>{last ? `JORNADA ${last.number}` : "SIN JORNADAS"}</span><strong>{myPoints === null ? "—" : Math.round(myPoints)}</strong><small>{myRoundRank ? `Tus puntos · ${myRoundRank}º de ${sortedRound.length}` : "Tus puntos"}</small></div>
-          <div><span>MEDIA DE LIGA</span><strong>{averagePoints === null ? "—" : Math.round(averagePoints)}</strong><small>{myPoints !== null && averagePoints !== null ? `${myPoints >= averagePoints ? "+" : ""}${Math.round(myPoints - averagePoints)} vs media` : ""}</small></div>
-          <div><span>{captainEntry ? "TU CAPITÁN" : "MEJOR JUGADOR"}</span><strong>{captainEntry ? Math.round(captainEntry.points) : best ? Math.round(best.points) : "—"}</strong><small>{captainEntry?.name ?? best?.name ?? "Aún sin datos"}</small></div>
+          <div><span>JORNADA {round}</span><strong>{mine ? Math.round(mine.points) : "—"}</strong><small>{myRank ? `Tus puntos · ${myRank}º de ${ranked.length}` : "Tus puntos"}</small></div>
+          <div><span>MEDIA DE LIGA</span><strong>{average === null ? "—" : Math.round(average)}</strong><small>{mine && average !== null ? `${mine.points >= average ? "+" : ""}${Math.round(mine.points - average)} vs media` : ""}</small></div>
+          <div><span>{captainEntry ? "TU CAPITÁN" : "LÍDER"}</span><strong>{captainEntry ? Math.round(captainEntry.points) : leader ? Math.round(leader.points) : "—"}</strong><small>{captainEntry?.name ?? leader?.teamName ?? "—"}</small></div>
         </div>
 
         <div className="matchday-stats">
           <div><span>PUNTOS TOTALES</span><strong>{Math.round(myTotal)}</strong></div>
           <div><span>POSICIÓN GENERAL</span><strong>{seasonRank || "—"}<small> / {state.members.length}</small></strong></div>
-          <div><span>MEJOR JORNADA</span><strong>{myHistory.length > 0 ? Math.round(myBestRound) : "—"}</strong></div>
-          <div><span>LÍDER DE LA JORNADA</span><strong className="lead-name">{roundLeader ? (roundLeader.id === myId ? "¡Tú!" : roundLeader.teamName) : "—"}</strong></div>
+          <div><span>MEJOR JORNADA</span><strong>{Math.round(myBestRound)}</strong></div>
+          <div><span>LÍDER DE LA JORNADA</span><strong className="lead-name">{leader ? (leader.memberId === myId ? "¡Tú!" : leader.teamName) : "—"}</strong></div>
         </div>
 
-        <div className="panel-head">
-          <div><span className="kicker">CLASIFICACIÓN DE LA JORNADA</span><h2>{last ? `Puntos de la jornada ${last.number}` : "Todavía no se ha disputado ninguna jornada"}</h2></div>
-          {state.league.isAdmin && state.league.currentMatchday <= state.league.totalMatchdays && (
-            <button className="button button-small" disabled={busy} onClick={simulate}><Play size={14} /> {busy ? "Disputando..." : `Disputar jornada ${state.league.currentMatchday}`}</button>
-          )}
+        <div className="panel-head matchday-rounds">
+          <div><span className="kicker">CLASIFICACIÓN DE LA JORNADA</span><h2>Resultados por jornada</h2></div>
+          <div className="head-actions">
+            <select value={round ?? ""} onChange={(event) => setRound(Number(event.target.value))}>
+              {rounds.slice().reverse().map((n) => <option key={n} value={n}>Jornada {n}</option>)}
+            </select>
+            {state.league.isAdmin && state.league.currentMatchday <= state.league.totalMatchdays && (
+              <button className="button button-small" disabled={busy} onClick={simulate}><Play size={14} /> {busy ? "..." : `Disputar J${state.league.currentMatchday}`}</button>
+            )}
+          </div>
         </div>
 
-        {last ? (
+        {loadingDetail && !detail ? (
+          <div className="empty-mini">Cargando jornada...</div>
+        ) : (
           <>
             <div className="fixture-list">
-              {sortedRound.map((row, index) => {
-                const member = memberName(row.memberId);
-                if (!member) return null;
-                const diff = averagePoints !== null ? row.points - averagePoints : 0;
+              {ranked.map((member, index) => {
+                const diff = average !== null ? member.points - average : 0;
                 return (
-                  <article key={row.memberId} className={row.memberId === myId ? "mine" : ""}>
+                  <article key={member.memberId} className={member.memberId === myId ? "mine clickable-row" : "clickable-row"} onClick={() => setOpenManager(member.memberId)}>
                     <time>{index + 1}º</time>
                     <div>
                       <i style={{ background: member.color }}>{member.teamName.slice(0, 2).toUpperCase()}</i>
                       <strong>{member.teamName}</strong>
-                      <span>{member.displayName}{row.memberId === myId ? " · Tú" : ""}</span>
+                      <span>{member.displayName}{member.memberId === myId ? " · Tú" : ""} · ver alineación</span>
                     </div>
-                    <em>{Math.round(row.points)} pts<small className={diff >= 0 ? "positive" : "negative"}>{diff >= 0 ? "+" : ""}{Math.round(diff)}</small></em>
+                    <em>{Math.round(member.points)} pts<small className={diff >= 0 ? "positive" : "negative"}>{diff >= 0 ? "+" : ""}{Math.round(diff)}</small></em>
                   </article>
                 );
               })}
@@ -310,35 +381,87 @@ export function MatchdayView({ state, act, notify }: { state: LeagueState; act: 
                 <span className="kicker">TU EVOLUCIÓN POR JORNADA</span>
                 <div className="points-bars points-bars-scroll">
                   {myHistory.map((r) => (
-                    <div key={r.number} className="points-bar" title={`Jornada ${r.number}: ${Math.round(r.points)} pts · ${r.rank}º`}>
+                    <button type="button" key={r.number} className={`points-bar ${r.number === round ? "active" : ""}`} title={`Jornada ${r.number}: ${Math.round(r.points)} pts`} onClick={() => setRound(r.number)}>
                       <i className={r.points >= 0 ? "pos" : "neg"} style={{ height: `${Math.max(4, (Math.abs(r.points) / maxHistory) * 46)}px` }} />
                       <em>{Math.round(r.points)}</em>
                       <small>J{r.number}</small>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
             )}
           </>
-        ) : (
-          <div className="empty-state"><Trophy /><h3>La temporada está lista</h3><p>{state.league.isAdmin ? "Pulsa «Disputar jornada» para calcular los primeros puntos." : "El administrador disputará la primera jornada en breve."}</p></div>
         )}
       </section>
 
       <aside className="panel round-team">
         <span className="kicker">TU EQUIPO</span>
-        <h2>{last ? `Rendimiento · J${last.number}` : "Rendimiento"}</h2>
-        {last ? (
+        <h2>Rendimiento · J{round}</h2>
+        {mine ? (
           <>
             <div className="round-team-sub"><span>Titulares</span><strong>{Math.round(startersTotal)} pts · {scorers}/{starters.length} puntuaron</strong></div>
-            {starters.map((player, index) => playerRow(player, index))}
+            {starters.map((player, index) => playerRow(player, index, mine.captainPlayerId))}
             {subs.length > 0 && <div className="round-team-sub"><span>Banquillo</span><strong>{subs.length} suplentes</strong></div>}
-            {subs.map((player, index) => playerRow(player, starters.length + index))}
+            {subs.map((player, index) => playerRow(player, starters.length + index, mine.captainPlayerId))}
           </>
         ) : (
-          <div className="empty-mini">Cuando se dispute una jornada verás aquí los puntos de cada uno de tus jugadores.</div>
+          <div className="empty-mini">No tienes alineación registrada en esta jornada.</div>
         )}
       </aside>
+
+      {openMember && (
+        <div className="modal-backdrop" onMouseDown={() => setOpenManager(null)}>
+          <div className="lineup-modal standings-rival-modal" onMouseDown={(event) => event.stopPropagation()}>
+            <button className="modal-close" onClick={() => setOpenManager(null)}><X /></button>
+            <div className="lineup-modal-head">
+              <span className="kicker">{openMember.displayName.toUpperCase()}</span>
+              <h2>{openMember.teamName}</h2>
+              <p>Jornada {round} · {Math.round(openMember.points)} pts · {openMember.formation}</p>
+            </div>
+            <div className="standings-rival-body">
+              <section>
+                <h3><Shirt size={15} /> Alineación</h3>
+                {openStarters.length > 0 ? (
+                  <div className="pitch full-pitch vertical-pitch rival-modal-pitch">
+                    {openStarters.map((player, index) => (
+                      <div key={player.playerId} className="pitch-player" style={{ left: `${openCoords[index]?.left ?? 50}%`, top: `${openCoords[index]?.top ?? 50}%` }}>
+                        <PlayerAvatar player={player} />
+                        {openMember.captainPlayerId === player.playerId && <Crown className="captain-crown" />}
+                        <strong><TeamBadge player={player} />{nameAndSurname(player.name)}</strong>
+                        <span>{Math.round(player.points)} pts</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : <div className="empty-mini"><Shirt size={14} /> Sin alineación en esta jornada.</div>}
+              </section>
+              <section>
+                <h3>Evolución de puntos</h3>
+                {openMemberHistory.length > 0 ? (
+                  <div className="points-bars points-bars-scroll">
+                    {openMemberHistory.map((r) => (
+                      <div key={r.number} className={`points-bar ${r.number === round ? "active" : ""}`} title={`Jornada ${r.number}: ${Math.round(r.points)} pts`}>
+                        <i className={r.points >= 0 ? "pos" : "neg"} style={{ height: `${Math.max(4, (Math.abs(r.points) / openMaxHistory) * 46)}px` }} />
+                        <em>{Math.round(r.points)}</em>
+                        <small>J{r.number}</small>
+                      </div>
+                    ))}
+                  </div>
+                ) : <div className="empty-mini">Sin histórico todavía.</div>}
+                <div className="round-results-list" style={{ marginTop: 12 }}>
+                  {openMember.players.filter((p) => p.starter).map((player) => (
+                    <div key={player.playerId}>
+                      <b />
+                      <PlayerAvatar player={player} small />
+                      <span><strong><TeamBadge player={player} />{player.name}</strong><small>{player.team}</small></span>
+                      <em>{Math.round(player.points)} pts</em>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

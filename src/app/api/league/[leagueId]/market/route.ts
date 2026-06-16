@@ -167,28 +167,15 @@ async function increaseClause(context: MemberContext, body: Payload) {
   if (!body.playerId) throw new ServiceError("Falta el jugador.");
   const amount = Math.round(Number(body.amount));
   if (!Number.isFinite(amount) || amount < 100000) throw new ServiceError("Indica una cantidad válida en millones.");
-  const budget = Number(context.member.budget);
-  if (amount > budget) throw new ServiceError("No tienes saldo suficiente para esa inversión.");
-  const { data: squadRow } = await context.db
-    .from("fantasy_squads")
-    .select("id, clause_value, player_id")
-    .eq("league_member_id", context.member.id)
-    .eq("player_id", body.playerId)
-    .maybeSingle();
-  if (!squadRow) throw new ServiceError("Ese jugador no está en tu plantilla.");
-  let base = squadRow.clause_value === null ? null : Number(squadRow.clause_value);
-  if (base === null) {
-    const { data: playerRow } = await context.db.from("fantasy_players").select("current_value").eq("id", body.playerId).maybeSingle();
-    base = Number(playerRow?.current_value ?? 0);
-  }
-  const newClause = base + amount; // inversión 1:1
-  const { error: clauseError } = await context.db.from("fantasy_squads").update({ clause_value: newClause }).eq("id", squadRow.id);
-  if (clauseError) throw new ServiceError(`No se pudo actualizar la cláusula: ${clauseError.message}`, 500);
-  const { error: budgetError } = await context.db.from("fantasy_league_members").update({ budget: budget - amount }).eq("id", context.member.id);
-  if (budgetError) {
-    await context.db.from("fantasy_squads").update({ clause_value: base }).eq("id", squadRow.id); // revertir
-    throw new ServiceError(`No se pudo descontar el saldo: ${budgetError.message}`, 500);
-  }
+  // Operación atómica (saldo + cláusula) en una sola transacción.
+  const { data, error } = await context.db.rpc("fantasy_increase_clause", {
+    p_league_id: context.league.id,
+    p_player_id: body.playerId,
+    p_member: context.member.id,
+    p_amount: amount,
+  });
+  if (error) throw new ServiceError(error.message.replace(/^.*?:\s*/, "").trim().slice(0, 160) || "No se pudo subir la cláusula.", 400);
+  const newClause = Number((data as { clause?: number } | null)?.clause ?? 0);
   const name = await playerName(context, body.playerId);
   await context.db.from("fantasy_audit_log").insert({
     league_id: context.league.id,
@@ -225,6 +212,14 @@ async function payClause(context: MemberContext, body: Payload) {
       .eq("kind", "clause")
       .gte("completed_at", since);
     if ((count ?? 0) >= clauseLimit) throw new ServiceError(`Este jugador ya ha recibido el máximo de ${clauseLimit} clausulazo${clauseLimit === 1 ? "" : "s"} en las últimas 24 horas.`);
+  }
+  const minHours = settings.rules.clauseMinHoursBeforeLock;
+  if (minHours > 0) {
+    const { data: md } = await context.db.from("fantasy_matchdays").select("locks_at").eq("league_id", context.league.id).eq("number", context.league.current_matchday).maybeSingle();
+    if (md?.locks_at) {
+      const hoursLeft = (new Date(md.locks_at as string).getTime() - Date.now()) / 3_600_000;
+      if (hoursLeft < minHours) throw new ServiceError(`No se pueden pagar cláusulas cuando faltan menos de ${minHours} h para el cierre de la jornada.`);
+    }
   }
   const amount = Number(squadRow.clause_value);
   const seller = (members ?? []).find((m) => m.id === squadRow.league_member_id);

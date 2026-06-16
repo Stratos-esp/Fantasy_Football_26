@@ -31,7 +31,6 @@ export function HomeView({ state, onNavigate }: { state: LeagueState; onNavigate
   }
   const filledStarters = slots.filter(Boolean) as typeof state.squad;
   const coordinates = pitchCoordinates(state.lineup.formation, "vertical");
-  const top = state.members.slice(0, 4);
   const chaser = rank === 1 && state.members.length > 1 ? state.members[1] : null;
 
   return (
@@ -72,7 +71,7 @@ export function HomeView({ state, onNavigate }: { state: LeagueState; onNavigate
       <section className="panel ranking-panel">
         <div className="panel-head"><div><span className="kicker">{state.league.name.toUpperCase()}</span><h2>Clasificación</h2></div><button className="text-button" onClick={() => onNavigate("clasificacion")}>Ver completa</button></div>
         <div className="ranking-list">
-          {top.map((member, index) => (
+          {state.members.map((member, index) => (
             <div key={member.id} className={member.id === state.myMember.id ? "you" : ""}>
               <b>{index + 1}</b>
               <i style={{ background: member.color }}>{member.teamName.slice(0, 2).toUpperCase()}</i>
