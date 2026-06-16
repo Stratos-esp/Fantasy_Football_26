@@ -13,6 +13,7 @@ export type LeagueRules = {
   unalignedPenalty: number;       // puntos por cada hueco de titular sin alinear (negativo)
   negativeBalancePenalty: number; // puntos si terminas la jornada con saldo negativo (negativo)
   moneyPerPoint: number;          // € que ganas por cada punto positivo de la jornada
+  clauseLimitPerDay: number;      // máximo de clausulazos al mismo jugador cada 24h (0 = sin límite)
 };
 
 export type LeagueSettings = {
@@ -30,6 +31,7 @@ export const defaultLeagueRules: LeagueRules = {
   unalignedPenalty: -4,
   negativeBalancePenalty: 0,
   moneyPerPoint: 0,
+  clauseLimitPerDay: 0,
 };
 
 export const defaultLeagueSettings: LeagueSettings = {
@@ -74,6 +76,7 @@ function parseLeagueRules(raw: unknown): LeagueRules {
     unalignedPenalty: num(data.unalignedPenalty, defaultLeagueRules.unalignedPenalty, -50, 0),
     negativeBalancePenalty: num(data.negativeBalancePenalty, defaultLeagueRules.negativeBalancePenalty, -100, 0),
     moneyPerPoint: num(data.moneyPerPoint, defaultLeagueRules.moneyPerPoint, 0, 5_000_000),
+    clauseLimitPerDay: Math.round(num(data.clauseLimitPerDay, defaultLeagueRules.clauseLimitPerDay, 0, 50)),
   };
 }
 
@@ -208,8 +211,21 @@ export type LeagueState = {
   } | null;
   roundResults: RoundResult[];
   activity: ActivityItem[];
+  proposals: RuleProposal[];
   notifications: NotificationItem[];
   unreadCount: number;
+};
+
+export type RuleProposal = {
+  id: string;
+  summary: string;
+  proposedByName: string;
+  createdAt: string;
+  yes: number;
+  no: number;
+  total: number;
+  myVote: boolean | null;
+  mine: boolean;
 };
 
 export type NotificationItem = {

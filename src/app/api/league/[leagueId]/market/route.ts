@@ -214,6 +214,18 @@ async function payClause(context: MemberContext, body: Payload) {
   if (!squadRow) throw new ServiceError("Ese jugador no pertenece a ningún rival.");
   if (squadRow.league_member_id === context.member.id) throw new ServiceError("Ya es tuyo.");
   if (squadRow.clause_value === null) throw new ServiceError("Ese jugador no tiene cláusula.");
+  const clauseLimit = settings.rules.clauseLimitPerDay;
+  if (clauseLimit > 0) {
+    const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const { count } = await context.db
+      .from("fantasy_transfers")
+      .select("id", { count: "exact", head: true })
+      .eq("league_id", context.league.id)
+      .eq("player_id", body.playerId)
+      .eq("kind", "clause")
+      .gte("completed_at", since);
+    if ((count ?? 0) >= clauseLimit) throw new ServiceError(`Este jugador ya ha recibido el máximo de ${clauseLimit} clausulazo${clauseLimit === 1 ? "" : "s"} en las últimas 24 horas.`);
+  }
   const amount = Number(squadRow.clause_value);
   const seller = (members ?? []).find((m) => m.id === squadRow.league_member_id);
   const name = await playerName(context, body.playerId);

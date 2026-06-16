@@ -57,6 +57,13 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 - Si te quitan un titular (venta, cláusula…) y tienes un suplente de su
   posición, el hueco se rellena automáticamente; si no hay recambio, queda
   vacío.
+- Sistema de votación de normas: cualquier miembro puede proponer cambios de
+  normas y reglas de la liga; se aprueban por mayoría de todos los miembros y se
+  resuelven al alcanzar la mayoría, cuando han votado todos o cuando el
+  administrador cierra la votación. Los cambios de reglas ya no se aplican
+  directamente, sino a través de esta votación.
+- Nueva norma configurable: límite de clausulazos al mismo jugador cada 24 horas
+  (0 = sin límite).
 
 ### Cambiado
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Check, Copy, FastForward, LockKeyhole, Minus, Play, Plus, RotateCcw, Shield, Users } from "lucide-react";
+import { AlertTriangle, Check, Copy, FastForward, Gavel, LockKeyhole, Minus, Play, Plus, RotateCcw, Shield, ThumbsDown, ThumbsUp, Users, X } from "lucide-react";
 import { timeAgo } from "@/lib/client";
 import type { LeagueRules, LeagueSettings, LeagueState } from "@/lib/types";
 import type { Notify } from "@/components/fantasy-app";
@@ -114,9 +114,9 @@ export function SettingsView({ state, act, notify, theme, setTheme }: { state: L
 
   async function save() {
     setSaving(true);
-    const ok = await act(`/api/league/${state.league.id}/settings`, { settings }, "PUT");
+    const ok = await act(`/api/league/${state.league.id}/proposals`, { action: "create", summary: "Cambio de reglas de la liga", settings });
     setSaving(false);
-    if (ok) { setSaved(true); notify("Reglas de la liga guardadas."); }
+    if (ok) { setSaved(true); notify("Propuesta de reglas enviada a votación."); }
   }
 
   async function reset() {
@@ -230,8 +230,8 @@ export function SettingsView({ state, act, notify, theme, setTheme }: { state: L
 
         {isAdmin && (
           <div className="settings-save">
-            <span>Los cambios de reglas quedan registrados en el historial.</span>
-            <button className="button" disabled={saving} onClick={save}>{saved ? <><Check /> Guardado</> : saving ? "Guardando..." : "Guardar cambios"}</button>
+            <span>Los cambios de reglas se envían a votación de la liga (mayoría).</span>
+            <button className="button" disabled={saving} onClick={save}>{saved ? <><Check /> Propuesta enviada</> : saving ? "Enviando..." : "Proponer cambios"}</button>
           </div>
         )}
 
@@ -253,66 +253,120 @@ export function SettingsView({ state, act, notify, theme, setTheme }: { state: L
   );
 }
 
+const RULE_LABELS: Record<keyof LeagueRules, string> = {
+  unalignedPenalty: "Penalización por hueco",
+  negativeBalancePenalty: "Penalización por saldo negativo",
+  moneyPerPoint: "Dinero por punto",
+  clauseLimitPerDay: "Límite de clausulazos/24h",
+};
+
+function describeRuleChanges(current: LeagueRules, next: LeagueRules): string {
+  const parts: string[] = [];
+  (Object.keys(RULE_LABELS) as (keyof LeagueRules)[]).forEach((key) => {
+    if (current[key] !== next[key]) parts.push(`${RULE_LABELS[key]}: ${current[key]} → ${next[key]}`);
+  });
+  return parts.join("; ");
+}
+
 export function NormasView({ state, act, notify }: { state: LeagueState; act: Act; notify: Notify }) {
   const isAdmin = state.league.isAdmin;
+  const proposalsUrl = `/api/league/${state.league.id}/proposals`;
   const [rules, setRules] = useState<LeagueRules>(state.league.settings.rules);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   function update<K extends keyof LeagueRules>(key: K, value: LeagueRules[K]) {
     setRules((current) => ({ ...current, [key]: value }));
-    setSaved(false);
   }
 
-  async function save() {
-    setSaving(true);
-    const ok = await act(`/api/league/${state.league.id}/settings`, { settings: { ...state.league.settings, rules } }, "PUT");
-    setSaving(false);
-    if (ok) { setSaved(true); notify("Normas guardadas."); }
+  const changes = describeRuleChanges(state.league.settings.rules, rules);
+
+  async function propose() {
+    if (!changes) { notify("No has cambiado ninguna norma.", "error"); return; }
+    setBusy(true);
+    const ok = await act(proposalsUrl, { action: "create", summary: changes, settings: { ...state.league.settings, rules } });
+    setBusy(false);
+    if (ok) notify("Propuesta enviada a votación.");
+  }
+
+  async function vote(proposalId: string, approve: boolean) {
+    setBusy(true);
+    const ok = await act(proposalsUrl, { action: "vote", proposalId, approve });
+    setBusy(false);
+    if (ok) notify(approve ? "Has votado a favor." : "Has votado en contra.");
+  }
+
+  async function resolve(proposalId: string, action: "close" | "cancel") {
+    setBusy(true);
+    const ok = await act(proposalsUrl, { action, proposalId });
+    setBusy(false);
+    if (ok) notify(action === "close" ? "Votación cerrada." : "Propuesta retirada.");
   }
 
   return (
     <div className="settings-layout">
       <section className="panel settings-panel">
         <div className="settings-section">
+          <span className="kicker">VOTACIÓN</span>
+          <h2>Propuestas abiertas</h2>
+          {state.proposals.length === 0 && <small className="settings-help">No hay propuestas en votación. Cambia una norma abajo y propón el cambio: se aprueba con la mayoría de la liga ({Math.floor(state.members.length / 2) + 1} de {state.members.length}).</small>}
+          {state.proposals.map((proposal) => (
+            <div className="proposal" key={proposal.id}>
+              <div className="proposal-head">
+                <strong>{proposal.summary}</strong>
+                <small>Propuesta de {proposal.proposedByName} · {proposal.yes} a favor / {proposal.no} en contra · {proposal.total} en la liga</small>
+              </div>
+              <div className="proposal-actions">
+                <button className={`vote-btn ${proposal.myVote === true ? "yes-on" : ""}`} disabled={busy} onClick={() => vote(proposal.id, true)}><ThumbsUp size={14} /> A favor</button>
+                <button className={`vote-btn ${proposal.myVote === false ? "no-on" : ""}`} disabled={busy} onClick={() => vote(proposal.id, false)}><ThumbsDown size={14} /> En contra</button>
+                {(proposal.mine || isAdmin) && <button className="ghost-button" disabled={busy} onClick={() => resolve(proposal.id, "cancel")}><X size={13} /> Retirar</button>}
+                {isAdmin && <button className="ghost-button" disabled={busy} onClick={() => resolve(proposal.id, "close")}><Gavel size={13} /> Cerrar votación</button>}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="settings-section">
           <span className="kicker">PUNTUACIÓN</span>
-          <h2>Penalizaciones {!isAdmin && <small className="settings-readonly">(solo lectura)</small>}</h2>
+          <h2>Penalizaciones</h2>
           <SettingRow title="Penalización por hueco sin alinear" text="Puntos que resta cada hueco de titular que dejes vacío en la jornada">
             <div className="stepper">
-              <button disabled={!isAdmin} onClick={() => update("unalignedPenalty", Math.max(-50, rules.unalignedPenalty - 1))}><Minus /></button>
+              <button onClick={() => update("unalignedPenalty", Math.max(-50, rules.unalignedPenalty - 1))}><Minus /></button>
               <strong>{rules.unalignedPenalty}</strong>
-              <button disabled={!isAdmin} onClick={() => update("unalignedPenalty", Math.min(0, rules.unalignedPenalty + 1))}><Plus /></button>
+              <button onClick={() => update("unalignedPenalty", Math.min(0, rules.unalignedPenalty + 1))}><Plus /></button>
             </div>
           </SettingRow>
           <SettingRow title="Penalización por saldo negativo" text="Puntos que restas si terminas la jornada con el saldo en negativo">
             <div className="stepper">
-              <button disabled={!isAdmin} onClick={() => update("negativeBalancePenalty", Math.max(-100, rules.negativeBalancePenalty - 1))}><Minus /></button>
+              <button onClick={() => update("negativeBalancePenalty", Math.max(-100, rules.negativeBalancePenalty - 1))}><Minus /></button>
               <strong>{rules.negativeBalancePenalty}</strong>
-              <button disabled={!isAdmin} onClick={() => update("negativeBalancePenalty", Math.min(0, rules.negativeBalancePenalty + 1))}><Plus /></button>
+              <button onClick={() => update("negativeBalancePenalty", Math.min(0, rules.negativeBalancePenalty + 1))}><Plus /></button>
             </div>
           </SettingRow>
         </div>
 
         <div className="settings-section">
-          <span className="kicker">ECONOMÍA</span>
-          <h2>Dinero por rendimiento</h2>
+          <span className="kicker">ECONOMÍA Y MERCADO</span>
+          <h2>Reglas configurables</h2>
           <SettingRow title="Dinero por punto" text="Saldo que ganas por cada punto positivo que sume tu equipo en la jornada">
             <div className="rule-money">
-              <input type="number" min={0} step={1000} disabled={!isAdmin} value={rules.moneyPerPoint} onChange={(event) => update("moneyPerPoint", Math.max(0, Math.min(5_000_000, Math.round(Number(event.target.value) || 0))))} />
+              <input type="number" min={0} step={1000} value={rules.moneyPerPoint} onChange={(event) => update("moneyPerPoint", Math.max(0, Math.min(5_000_000, Math.round(Number(event.target.value) || 0))))} />
               <span>€</span>
+            </div>
+          </SettingRow>
+          <SettingRow title="Límite de clausulazos por jugador" text="Máximo de cláusulas que se pueden pagar al mismo jugador cada 24h (0 = sin límite)">
+            <div className="stepper">
+              <button onClick={() => update("clauseLimitPerDay", Math.max(0, rules.clauseLimitPerDay - 1))}><Minus /></button>
+              <strong>{rules.clauseLimitPerDay === 0 ? "∞" : rules.clauseLimitPerDay}</strong>
+              <button onClick={() => update("clauseLimitPerDay", Math.min(50, rules.clauseLimitPerDay + 1))}><Plus /></button>
             </div>
           </SettingRow>
           <small className="settings-help">Ejemplo: con 50.000 € por punto, una jornada de 40 puntos te da 2 M€.</small>
         </div>
 
-        {isAdmin ? (
-          <div className="settings-save">
-            <span>Los cambios de normas quedan registrados en el historial.</span>
-            <button className="button" disabled={saving} onClick={save}>{saved ? <><Check /> Guardado</> : saving ? "Guardando..." : "Guardar normas"}</button>
-          </div>
-        ) : (
-          <div className="settings-section"><small className="settings-help">Solo el administrador puede cambiar las normas de la liga.</small></div>
-        )}
+        <div className="settings-save">
+          <span>{changes ? `Cambios: ${changes}` : "Cambia una norma para proponerla a votación."}</span>
+          <button className="button" disabled={busy || !changes} onClick={propose}>{busy ? "Enviando..." : "Proponer a votación"}</button>
+        </div>
       </section>
     </div>
   );

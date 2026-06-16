@@ -1157,6 +1157,33 @@ export async function getLeagueState(db: Db, league: LeagueRow, member: MemberRo
   }));
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  // Propuestas de cambio de normas abiertas y sus votos.
+  const { data: proposalRows } = await db
+    .from("fantasy_rule_proposals")
+    .select("id, summary, proposed_by, created_at")
+    .eq("league_id", league.id)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
+  const proposalIds = (proposalRows ?? []).map((p) => p.id);
+  const { data: voteRows } = proposalIds.length > 0
+    ? await db.from("fantasy_rule_votes").select("proposal_id, member_id, approve").in("proposal_id", proposalIds)
+    : { data: [] };
+  const proposals = ((proposalRows ?? []) as { id: string; summary: string; proposed_by: string | null; created_at: string }[]).map((p) => {
+    const votes = (voteRows ?? []).filter((v) => v.proposal_id === p.id);
+    const mine = votes.find((v) => v.member_id === member.id);
+    return {
+      id: p.id,
+      summary: p.summary,
+      proposedByName: membersData.find((m) => m.id === p.proposed_by)?.team_name ?? "—",
+      createdAt: p.created_at,
+      yes: votes.filter((v) => v.approve).length,
+      no: votes.filter((v) => !v.approve).length,
+      total: membersData.length,
+      myVote: mine ? Boolean(mine.approve) : null,
+      mine: p.proposed_by === member.id,
+    };
+  });
+
   const mySquad = squads.filter((row) => row.league_member_id === member.id);
   const rivalSquads = squads.filter((row) => row.league_member_id !== member.id);
 
@@ -1233,7 +1260,65 @@ export async function getLeagueState(db: Db, league: LeagueRow, member: MemberRo
     lastMatchday,
     roundResults,
     activity,
+    proposals,
     notifications,
     unreadCount,
   };
+}
+
+// --- Propuestas de cambio de normas (votación por mayoría de la liga) ---
+
+async function resolveProposalIfDecided(db: Db, league: LeagueRow, proposalId: string, force = false) {
+  const { data: proposal } = await db.from("fantasy_rule_proposals").select("id, settings, status, summary").eq("id", proposalId).maybeSingle();
+  if (!proposal || proposal.status !== "pending") return;
+  const { count: totalCount } = await db.from("fantasy_league_members").select("id", { count: "exact", head: true }).eq("league_id", league.id);
+  const total = totalCount ?? 0;
+  const { data: votes } = await db.from("fantasy_rule_votes").select("approve").eq("proposal_id", proposalId);
+  const cast = votes ?? [];
+  const yes = cast.filter((v) => v.approve).length;
+  const no = cast.filter((v) => !v.approve).length;
+  const summary = (proposal.summary as string).slice(0, 120);
+  if (yes * 2 > total) {
+    await db.from("fantasy_leagues").update({ settings: proposal.settings }).eq("id", league.id);
+    await db.from("fantasy_rule_proposals").update({ status: "approved", resolved_at: new Date().toISOString() }).eq("id", proposalId);
+    await audit(db, league.id, null, "proposal_approved", `Propuesta aprobada por mayoría: ${summary}`);
+  } else if (no * 2 >= total || cast.length >= total || force) {
+    await db.from("fantasy_rule_proposals").update({ status: "rejected", resolved_at: new Date().toISOString() }).eq("id", proposalId);
+    await audit(db, league.id, null, "proposal_rejected", `Propuesta rechazada: ${summary}`);
+  }
+}
+
+export async function createProposal(db: Db, league: LeagueRow, member: MemberRow, actorUserId: string, summary: string, rawSettings: unknown) {
+  const clean = summary.trim().slice(0, 280) || "Cambio de normas de la liga";
+  const settings = parseLeagueSettings(rawSettings);
+  const { data: proposal, error } = await db
+    .from("fantasy_rule_proposals")
+    .insert({ league_id: league.id, proposed_by: member.id, summary: clean, settings, status: "pending" })
+    .select("id")
+    .single();
+  if (error || !proposal) throw new ServiceError("No se pudo crear la propuesta.", 500);
+  await db.from("fantasy_rule_votes").insert({ proposal_id: proposal.id, member_id: member.id, approve: true });
+  await audit(db, league.id, actorUserId, "proposal_created", `${member.team_name} propuso: ${clean}`);
+  await resolveProposalIfDecided(db, league, proposal.id);
+  return proposal.id;
+}
+
+export async function voteProposal(db: Db, league: LeagueRow, member: MemberRow, proposalId: string, approve: boolean) {
+  const { data: proposal } = await db.from("fantasy_rule_proposals").select("id, status").eq("id", proposalId).eq("league_id", league.id).maybeSingle();
+  if (!proposal || proposal.status !== "pending") throw new ServiceError("Esta propuesta ya no está abierta.");
+  const { error } = await db.from("fantasy_rule_votes").upsert({ proposal_id: proposalId, member_id: member.id, approve }, { onConflict: "proposal_id,member_id" });
+  if (error) throw new ServiceError("No se pudo registrar tu voto.", 500);
+  await resolveProposalIfDecided(db, league, proposalId);
+}
+
+export async function closeProposal(db: Db, league: LeagueRow, member: MemberRow, proposalId: string) {
+  if (!isAdmin(member)) throw new ServiceError("Solo un administrador puede cerrar la votación.", 403);
+  await resolveProposalIfDecided(db, league, proposalId, true);
+}
+
+export async function cancelProposal(db: Db, league: LeagueRow, member: MemberRow, proposalId: string) {
+  const { data: proposal } = await db.from("fantasy_rule_proposals").select("id, proposed_by, status").eq("id", proposalId).eq("league_id", league.id).maybeSingle();
+  if (!proposal || proposal.status !== "pending") throw new ServiceError("Esta propuesta ya no está abierta.");
+  if (proposal.proposed_by !== member.id && !isAdmin(member)) throw new ServiceError("Solo quien la propuso o un administrador puede retirarla.", 403);
+  await db.from("fantasy_rule_proposals").update({ status: "cancelled", resolved_at: new Date().toISOString() }).eq("id", proposalId);
 }
