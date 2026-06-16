@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import {
   Bell, CalendarDays, ChevronDown, Copy, Gavel, Home, LayoutGrid, LogOut,
   MessageCircle, Search, Settings, Shield, Shirt, Trophy, Users, X,
@@ -151,7 +152,7 @@ export function FantasyApp() {
   return (
     <div className="app-shell">
       <aside className={`sidebar ${mobileNav ? "mobile-open" : ""}`}>
-        <div className="sidebar-top"><Brand /><button className="mobile-close" onClick={() => setMobileNav(false)}><X /></button></div>
+        <div className="sidebar-top"><a href="/" className="brand brand-logo-link" aria-label="Stratos League"><Image className="brand-logo" src="/stratos-league.png" alt="Stratos League" width={937} height={259} priority /></a><button className="mobile-close" onClick={() => setMobileNav(false)}><X /></button></div>
         <div className="league-picker-wrap">
           <button className="league-picker" onClick={() => setLeagueMenu((open) => !open)}>
             <span className="league-avatar">{state.league.name.slice(0, 2).toUpperCase()}</span>

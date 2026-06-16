@@ -32,6 +32,8 @@ a { color:inherit; text-decoration:none; }
 .wrap { width:min(1180px, calc(100% - 40px)); margin-inline:auto; }
 .brand { display:inline-flex; align-items:center; gap:11px; font-family:var(--font-display), sans-serif; font-size:13px; letter-spacing:.07em; font-weight:700; white-space:nowrap; }
 .brand strong { color:var(--accent); }
+.brand-logo-link { flex:0 1 auto; min-width:0; }
+.brand-logo { height:34px; width:auto; max-width:100%; display:block; }
 .brand-mark { width:31px; height:31px; display:flex; align-items:flex-end; gap:2px; padding:5px; background:var(--primary); border-radius:9px; transform:skew(-7deg); }
 .brand-mark i { display:block; width:6px; background:var(--accent); border-radius:2px 2px 1px 1px; }
 .brand-mark i:nth-child(1){height:10px}.brand-mark i:nth-child(2){height:17px}.brand-mark i:nth-child(3){height:22px}

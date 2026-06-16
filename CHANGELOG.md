@@ -11,8 +11,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 ### Añadido
 
 - Documentación común para mantener el historial y coordinar contribuciones.
-- Logo oficial de «Stratos League» (recortado y con fondo transparente) como
-  protagonista del panel de la pantalla de acceso.
+- Logo oficial de «Stratos League» (recortado y con fondo transparente) en el
+  panel de la pantalla de acceso y en la barra lateral de la aplicación.
 - Nueva pestaña «Jugadores»: base de datos de toda LaLiga con buscador y
   filtros por posición y equipo, y ficha individual con gráfico real de
   evolución del valor de mercado, puntos por jornada y estadísticas de la
