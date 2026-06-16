@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
   Bell, CalendarDays, Check, ChevronDown, Copy, Gavel, Home, LayoutGrid, LogOut,
-  MessageCircle, Search, Settings, Shield, Shirt, Trophy, Users, X,
+  MessageCircle, Scale, Search, Settings, Shield, Shirt, Trophy, Users, X,
 } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { apiGet, apiPost, money, timeAgo } from "@/lib/client";
@@ -14,9 +14,9 @@ import { SquadView } from "@/components/views-squad";
 import { MarketView } from "@/components/views-market";
 import { CommunityView, MatchdayView, StandingsView } from "@/components/views-league";
 import { PlayersView } from "@/components/views-players";
-import { AdminView, SettingsView } from "@/components/views-admin";
+import { AdminView, NormasView, SettingsView } from "@/components/views-admin";
 
-export type Section = "inicio" | "plantilla" | "mercado" | "clasificacion" | "jornada" | "jugadores" | "comunidad" | "administracion" | "ajustes";
+export type Section = "inicio" | "plantilla" | "mercado" | "clasificacion" | "jornada" | "jugadores" | "comunidad" | "normas" | "administracion" | "ajustes";
 type Theme = "stratos" | "classic" | "midnight" | "sand";
 
 type MeResponse = { user: { id: string; username: string; displayName: string }; memberships: Membership[] };
@@ -140,6 +140,7 @@ export function FantasyApp() {
       jornada: [matchday || "Jornada", state?.lastMatchday ? `Última disputada: jornada ${state.lastMatchday.number}` : "Aún no se ha disputado ninguna jornada"],
       jugadores: ["Jugadores", "Base de datos de LaLiga · valores, puntos e histórico"],
       comunidad: ["Comunidad", "Chat y movimientos de la liga"],
+      normas: ["Normas", "Reglas de puntuación y economía de la liga"],
       administracion: ["Administración", "Miembros, invitaciones e historial"],
       ajustes: ["Ajustes", "Tu experiencia y las reglas de la liga"],
     };
@@ -185,6 +186,7 @@ export function FantasyApp() {
             return <button key={id} onClick={() => goTo(id)} className={section === id ? "active" : ""}><Icon /><span>{label}</span>{badge > 0 && <i>{badge}</i>}</button>;
           })}
           <span className="nav-label second">LIGA</span>
+          <button onClick={() => goTo("normas")} className={section === "normas" ? "active" : ""}><Scale /><span>Normas</span></button>
           <button onClick={() => goTo("administracion")} className={section === "administracion" ? "active" : ""}><Shield /><span>Administración</span></button>
           <button onClick={() => goTo("ajustes")} className={section === "ajustes" ? "active" : ""}><Settings /><span>Ajustes</span></button>
         </nav>
@@ -236,6 +238,7 @@ export function FantasyApp() {
           {section === "jornada" && <MatchdayView state={state} act={act} notify={notify} />}
           {section === "jugadores" && <PlayersView />}
           {section === "comunidad" && <CommunityView state={state} notify={notify} />}
+          {section === "normas" && <NormasView state={state} act={act} notify={notify} />}
           {section === "administracion" && <AdminView state={state} act={act} notify={notify} />}
           {section === "ajustes" && <SettingsView state={state} act={act} notify={notify} theme={theme} setTheme={(value) => setTheme(value as Theme)} />}
         </main>

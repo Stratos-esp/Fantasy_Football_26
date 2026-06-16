@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle, Check, Copy, FastForward, LockKeyhole, Minus, Play, Plus, RotateCcw, Shield, Users } from "lucide-react";
 import { timeAgo } from "@/lib/client";
-import type { LeagueSettings, LeagueState } from "@/lib/types";
+import type { LeagueRules, LeagueSettings, LeagueState } from "@/lib/types";
 import type { Notify } from "@/components/fantasy-app";
 import { SettingRow, Toggle } from "@/components/ui";
 
@@ -247,6 +247,71 @@ export function SettingsView({ state, act, notify, theme, setTheme }: { state: L
               </button>
             </div>
           </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+export function NormasView({ state, act, notify }: { state: LeagueState; act: Act; notify: Notify }) {
+  const isAdmin = state.league.isAdmin;
+  const [rules, setRules] = useState<LeagueRules>(state.league.settings.rules);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  function update<K extends keyof LeagueRules>(key: K, value: LeagueRules[K]) {
+    setRules((current) => ({ ...current, [key]: value }));
+    setSaved(false);
+  }
+
+  async function save() {
+    setSaving(true);
+    const ok = await act(`/api/league/${state.league.id}/settings`, { settings: { ...state.league.settings, rules } }, "PUT");
+    setSaving(false);
+    if (ok) { setSaved(true); notify("Normas guardadas."); }
+  }
+
+  return (
+    <div className="settings-layout">
+      <section className="panel settings-panel">
+        <div className="settings-section">
+          <span className="kicker">PUNTUACIÓN</span>
+          <h2>Penalizaciones {!isAdmin && <small className="settings-readonly">(solo lectura)</small>}</h2>
+          <SettingRow title="Penalización por hueco sin alinear" text="Puntos que resta cada hueco de titular que dejes vacío en la jornada">
+            <div className="stepper">
+              <button disabled={!isAdmin} onClick={() => update("unalignedPenalty", Math.max(-50, rules.unalignedPenalty - 1))}><Minus /></button>
+              <strong>{rules.unalignedPenalty}</strong>
+              <button disabled={!isAdmin} onClick={() => update("unalignedPenalty", Math.min(0, rules.unalignedPenalty + 1))}><Plus /></button>
+            </div>
+          </SettingRow>
+          <SettingRow title="Penalización por saldo negativo" text="Puntos que restas si terminas la jornada con el saldo en negativo">
+            <div className="stepper">
+              <button disabled={!isAdmin} onClick={() => update("negativeBalancePenalty", Math.max(-100, rules.negativeBalancePenalty - 1))}><Minus /></button>
+              <strong>{rules.negativeBalancePenalty}</strong>
+              <button disabled={!isAdmin} onClick={() => update("negativeBalancePenalty", Math.min(0, rules.negativeBalancePenalty + 1))}><Plus /></button>
+            </div>
+          </SettingRow>
+        </div>
+
+        <div className="settings-section">
+          <span className="kicker">ECONOMÍA</span>
+          <h2>Dinero por rendimiento</h2>
+          <SettingRow title="Dinero por punto" text="Saldo que ganas por cada punto positivo que sume tu equipo en la jornada">
+            <div className="rule-money">
+              <input type="number" min={0} step={1000} disabled={!isAdmin} value={rules.moneyPerPoint} onChange={(event) => update("moneyPerPoint", Math.max(0, Math.min(5_000_000, Math.round(Number(event.target.value) || 0))))} />
+              <span>€</span>
+            </div>
+          </SettingRow>
+          <small className="settings-help">Ejemplo: con 50.000 € por punto, una jornada de 40 puntos te da 2 M€.</small>
+        </div>
+
+        {isAdmin ? (
+          <div className="settings-save">
+            <span>Los cambios de normas quedan registrados en el historial.</span>
+            <button className="button" disabled={saving} onClick={save}>{saved ? <><Check /> Guardado</> : saving ? "Guardando..." : "Guardar normas"}</button>
+          </div>
+        ) : (
+          <div className="settings-section"><small className="settings-help">Solo el administrador puede cambiar las normas de la liga.</small></div>
         )}
       </section>
     </div>

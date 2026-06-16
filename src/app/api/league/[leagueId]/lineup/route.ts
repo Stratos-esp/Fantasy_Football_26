@@ -15,7 +15,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ leag
     const starters = body?.starters ?? [];
     const bench = body?.bench ?? [];
     const settings = leagueSettings(league);
-    if (starters.length !== 11) throw new ServiceError("La alineación debe tener 11 titulares.");
+    if (starters.length > 11) throw new ServiceError("No puedes alinear más de 11 titulares.");
     if (new Set([...starters, ...bench]).size !== starters.length + bench.length) throw new ServiceError("Hay jugadores repetidos en la alineación.");
     if (bench.length > settings.benchSlots) throw new ServiceError(`El banquillo admite como máximo ${settings.benchSlots} jugadores.`);
 
@@ -25,11 +25,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ leag
       if (!owned.has(id)) throw new ServiceError("Solo puedes alinear jugadores de tu plantilla.");
     }
 
-    const { data: playerRows } = await db.from("fantasy_players").select("id, position").in("id", starters);
+    // Se permite guardar con menos de 11: cada hueco vacío puntuará la
+    // penalización configurada. Solo validamos que no se exceda la formación.
+    const { data: playerRows } = await db.from("fantasy_players").select("id, position").in("id", starters.length > 0 ? starters : ["00000000-0000-0000-0000-000000000000"]);
     const counts: Record<string, number> = { POR: 0, DEF: 0, MED: 0, DEL: 0 };
     for (const row of playerRows ?? []) counts[row.position as string] += 1;
-    if (counts.POR !== 1 || counts.DEF !== shape.DEF || counts.MED !== shape.MED || counts.DEL !== shape.DEL) {
-      throw new ServiceError(`La formación ${formation} requiere 1 POR, ${shape.DEF} DEF, ${shape.MED} MED y ${shape.DEL} DEL.`);
+    if (counts.POR > 1 || counts.DEF > shape.DEF || counts.MED > shape.MED || counts.DEL > shape.DEL) {
+      throw new ServiceError(`La formación ${formation} admite como máximo 1 POR, ${shape.DEF} DEF, ${shape.MED} MED y ${shape.DEL} DEL.`);
     }
 
     const captain = body?.captainPlayerId ?? null;

@@ -48,6 +48,15 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   capitán, evolución por jornada y desglose de titulares y banquillo.
 - Nuevo ajuste de liga para mostrar u ocultar el número de pujas de cada
   jugador del mercado.
+- Nueva pestaña «Normas» (configurable por el administrador): penalización de
+  puntos por cada hueco de titular sin alinear, penalización por terminar la
+  jornada con saldo negativo y dinero ganado por cada punto de la jornada.
+- La convocatoria muestra con etiquetas de color si cada jugador es titular,
+  suplente o está sin convocar, y permite cambiar su rol (titular, banquillo o
+  fuera) tanto desde la lista como desde el banquillo.
+- Si te quitan un titular (venta, cláusula…) y tienes un suplente de su
+  posición, el hueco se rellena automáticamente; si no hay recambio, queda
+  vacío.
 
 ### Cambiado
 
@@ -58,6 +67,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   de las listas y controles) para que todo se lea mejor, sobre todo en móvil.
 - En el 4-4-2 (y demás formaciones) los jugadores de cada línea se reparten
   centrados: los dos delanteros dejan de quedar pegados a las bandas.
+- Ya se puede guardar la alineación con menos de 11 titulares; cada hueco vacío
+  resta los puntos configurados en Normas al disputar la jornada.
 - Los retratos de jugadores se centran mejor dentro de los avatares circulares.
 - La vista Mi plantilla usa un campo vertical de abajo a arriba para configurar
   la alineación.
@@ -79,6 +90,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   al cambiar de dueño se cancelan los anuncios y ofertas pendientes que tuviera.
 - El logo de Stratos League en la barra lateral lleva a Inicio en lugar de salir
   de la aplicación.
+- En Inicio, el once se coloca en posiciones fijas y ya no se descoloca cuando
+  hay algún hueco libre en la plantilla.
+- Con el banquillo desactivado, la convocatoria ya no muestra jugadores como
+  «suplentes».
 
 ## 2026-06-15
 

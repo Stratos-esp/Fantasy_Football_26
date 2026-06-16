@@ -607,3 +607,21 @@ a { color:inherit; text-decoration:none; }
 @media (max-width: 760px){
   .matchday-stats{grid-template-columns:1fr 1fr}
 }
+
+/* Convocatoria: estados visuales y gestión de roles */
+.convocatoria-meta{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap}
+.role-pill{font-size:8px;font-weight:800;padding:2px 8px;border-radius:100px;letter-spacing:.03em}
+.role-pill.titular{background:rgba(34,145,91,.16);color:var(--positive)}
+.role-pill.suplente{background:#fff0d6;color:#9d7220}
+.role-pill.fuera{background:var(--surface-2);color:var(--muted)}
+:root[data-theme="midnight"] .role-pill.suplente,:root[data-theme="sand"] .role-pill.suplente{background:rgba(216,166,0,.18)}
+.bench-chip-id{display:flex;align-items:center;gap:9px;border:0;background:transparent;cursor:pointer;color:inherit;text-align:left;padding:0;min-width:0}
+.bench-chip-id:hover strong{color:var(--primary)}
+.manage-actions{display:flex;flex-direction:column;gap:8px;width:100%;margin-top:8px}
+.manage-actions .button,.manage-actions .ghost-button{width:100%;justify-content:center;min-height:44px;font-size:12px}
+
+/* Normas: campo de dinero por punto */
+.rule-money{display:flex;align-items:center;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);overflow:hidden}
+.rule-money input{width:120px;border:0;background:transparent;padding:9px 11px;color:var(--ink);font:700 13px var(--font-display);text-align:right;outline:0}
+.rule-money input:disabled{opacity:.6}
+.rule-money span{padding:0 11px;color:var(--muted);font-weight:800}

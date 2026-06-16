@@ -554,6 +554,33 @@ async function addToCurrentBench(db: Db, league: LeagueRow, memberId: string, pl
   });
 }
 
+// Cuando un jugador sale de un equipo (venta, cláusula, oferta...), lo quitamos
+// de su alineación de la jornada actual. Si era titular, ascendemos
+// automáticamente a un suplente de la misma posición; si no hay recambio, el
+// hueco queda vacío.
+async function autoFillVacatedSlot(db: Db, league: LeagueRow, memberId: string, leavingPlayerId: string) {
+  const matchday = await activeMatchday(db, league);
+  if (!matchday) return;
+  const { data: lineup } = await db.from("fantasy_lineups").select("id").eq("matchday_id", matchday.id).eq("league_member_id", memberId).maybeSingle();
+  if (!lineup) return;
+  const { data: rows } = await db.from("fantasy_lineup_players").select("player_id, slot, is_starter, bench_order").eq("lineup_id", lineup.id);
+  const leaving = (rows ?? []).find((r) => r.player_id === leavingPlayerId);
+  if (!leaving) return;
+  await db.from("fantasy_lineup_players").delete().eq("lineup_id", lineup.id).eq("player_id", leavingPlayerId);
+  if (!leaving.is_starter) return;
+  const benchRows = (rows ?? []).filter((r) => !r.is_starter && r.player_id !== leavingPlayerId);
+  if (benchRows.length === 0) return;
+  const ids = [leavingPlayerId, ...benchRows.map((r) => r.player_id as string)];
+  const { data: positions } = await db.from("fantasy_players").select("id, position").in("id", ids);
+  const positionById = new Map((positions ?? []).map((p) => [p.id as string, p.position as string]));
+  const leavingPosition = positionById.get(leavingPlayerId);
+  const replacement = benchRows
+    .filter((r) => positionById.get(r.player_id as string) === leavingPosition)
+    .sort((a, b) => (a.bench_order ?? 9) - (b.bench_order ?? 9))[0];
+  if (!replacement) return;
+  await db.from("fantasy_lineup_players").update({ is_starter: true, slot: leaving.slot, bench_order: null }).eq("lineup_id", lineup.id).eq("player_id", replacement.player_id);
+}
+
 function cleanPgError(message: string): string {
   // PostgREST antepone contexto; nos quedamos con el mensaje de la excepción.
   const cleaned = message.replace(/^.*?:\s*/, "").trim();
@@ -595,6 +622,7 @@ export async function executeTransfer(db: Db, args: TransferArgs) {
     .eq("status", "pending");
 
   // Ajustes no críticos fuera de la transacción de dinero.
+  if (args.fromMemberId) await autoFillVacatedSlot(db, args.league, args.fromMemberId, args.playerId);
   if (args.toMemberId) await addToCurrentBench(db, args.league, args.toMemberId, args.playerId);
   await audit(db, args.league.id, args.actorUserId, `transfer_${args.kind}`, args.detail);
 }
@@ -779,9 +807,18 @@ export async function simulateMatchday(db: Db, league: LeagueRow, actorUserId: s
       const captainPoints = statsByPlayer.get(lineup.captain_player_id)?.points ?? 0;
       if (starters.includes(lineup.captain_player_id)) total += captainPoints * (settings.captainMultiplier - 1);
     }
+    // Norma: penalización por cada hueco de titular sin alinear.
+    const shape = formations[lineup.formation as string];
+    const expectedStarters = shape ? 1 + shape.DEF + shape.MED + shape.DEL : 11;
+    const emptySlots = Math.max(0, expectedStarters - starters.length);
+    total += emptySlots * settings.rules.unalignedPenalty;
+    // Norma: penalización por terminar la jornada con saldo negativo.
+    if (Number(member.budget) < 0) total += settings.rules.negativeBalancePenalty;
     total = Math.round(total * 100) / 100;
+    // Norma: dinero ganado por cada punto positivo de la jornada.
+    const moneyAward = Math.round(Math.max(0, total) * settings.rules.moneyPerPoint);
     await db.from("fantasy_lineups").update({ total_points: total }).eq("id", lineup.id);
-    await db.from("fantasy_league_members").update({ total_points: Number(member.total_points) + total }).eq("id", member.id);
+    await db.from("fantasy_league_members").update({ total_points: Number(member.total_points) + total, budget: Number(member.budget) + moneyAward }).eq("id", member.id);
   }
 
   // Evolución de valores de mercado según rendimiento.

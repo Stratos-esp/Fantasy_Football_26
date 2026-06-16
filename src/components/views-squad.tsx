@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Check, Crown, LockKeyhole, Plus, Sparkles, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Crown, LockKeyhole, Plus, Shirt, Sparkles, X } from "lucide-react";
 import { money, moneyInput, nameAndSurname, pitchCoordinates, positionOrder } from "@/lib/client";
 import { formations, type LeagueState, type SquadEntry } from "@/lib/types";
 import type { Notify } from "@/components/fantasy-app";
@@ -71,6 +71,8 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
   const [clauseId, setClauseId] = useState<string | null>(null);
   const [clauseAmount, setClauseAmount] = useState("");
   const [clauseBusy, setClauseBusy] = useState(false);
+  const [manageId, setManageId] = useState<string | null>(null);
+  const [swapForId, setSwapForId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -85,7 +87,8 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
   const coordinates = pitchCoordinates(formation, "vertical");
   const slotPositions = useMemo(() => slotPositionList(formation), [formation]);
   const starterIds = slots.filter((id): id is string => Boolean(id));
-  const valid = slots.length === 11 && slots.every((id) => id !== null && playersById.has(id));
+  const benchIds = settings.bench ? bench : [];
+  const emptyStarters = slots.filter((id) => id === null).length;
 
   function changeFormation(next: string) {
     const filled = autofill(state.squad, next);
@@ -123,12 +126,38 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
   }
 
   async function save() {
-    if (!valid) { notify("Completa los 11 titulares antes de guardar.", "error"); return; }
     setSaving(true);
-    const cleanBench = bench.filter((id) => playersById.has(id));
-    const ok = await act(`/api/league/${state.league.id}/lineup`, { formation, starters: starterIds, bench: cleanBench, captainPlayerId: settings.captain ? captain : null }, "PUT");
+    const cleanBench = settings.bench ? bench.filter((id) => playersById.has(id)) : [];
+    const validCaptain = settings.captain && captain && starterIds.includes(captain) ? captain : null;
+    const ok = await act(`/api/league/${state.league.id}/lineup`, { formation, starters: starterIds, bench: cleanBench, captainPlayerId: validCaptain }, "PUT");
     setSaving(false);
-    if (ok) { setDirty(false); notify("Alineación guardada."); }
+    if (ok) { setDirty(false); notify(emptyStarters > 0 ? `Alineación guardada con ${emptyStarters} hueco${emptyStarters === 1 ? "" : "s"} libre${emptyStarters === 1 ? "" : "s"}.` : "Alineación guardada."); }
+  }
+
+  // --- Gestión de roles desde la convocatoria y el banquillo ---
+  function emptySlotIndexFor(position: string) {
+    return slots.findIndex((id, i) => id === null && slotPositions[i] === position);
+  }
+  function makeStarter(id: string) {
+    const player = playersById.get(id);
+    if (!player) return;
+    const empty = emptySlotIndexFor(player.position);
+    if (empty >= 0) { assignSlot(empty, id); setManageId(null); return; }
+    // Sin hueco libre de su posición: elige a qué titular sustituye.
+    setSwapForId(id);
+  }
+  function moveToBench(id: string) {
+    setSlots((current) => current.map((slot) => (slot === id ? null : slot)));
+    setBench((current) => (current.includes(id) ? current : [...current, id]).slice(0, settings.benchSlots));
+    setDirty(true);
+    setManageId(null);
+  }
+  function unconvene(id: string) {
+    setSlots((current) => current.map((slot) => (slot === id ? null : slot)));
+    setBench((current) => current.filter((x) => x !== id));
+    if (captain === id) setCaptain(null);
+    setDirty(true);
+    setManageId(null);
   }
 
   async function confirmClause() {
@@ -198,9 +227,11 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
                 if (!player) return null;
                 return (
                   <div key={id} className="bench-chip">
-                    <PlayerAvatar player={player} small />
-                    <PositionTag position={player.position} />
-                    <span><strong><TeamBadge player={player} />{nameAndSurname(player.name)}</strong><small>{player.position}</small></span>
+                    <button type="button" className="bench-chip-id" onClick={() => setManageId(id)}>
+                      <PlayerAvatar player={player} small />
+                      <PositionTag position={player.position} />
+                      <span><strong><TeamBadge player={player} />{nameAndSurname(player.name)}</strong><small>{player.position}</small></span>
+                    </button>
                     <div className="bench-actions">
                       <button onClick={() => moveBench(id, -1)} disabled={index === 0} aria-label="Subir"><ArrowUp /></button>
                       <button onClick={() => moveBench(id, 1)} disabled={index === bench.length - 1} aria-label="Bajar"><ArrowDown /></button>
@@ -218,15 +249,17 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
         <div className="panel-head"><div><span className="kicker">CONVOCATORIA</span><h2>Jugadores</h2></div><span className="counter">{state.squad.length}</span></div>
         {state.squad.slice().sort((a, b) => positionOrder[a.position] - positionOrder[b.position] || b.value - a.value).map((player) => {
           const isStarter = starterIds.includes(player.id);
-          const isBench = bench.includes(player.id);
+          const isBench = benchIds.includes(player.id);
+          const role = isStarter ? "titular" : isBench ? "suplente" : "fuera";
+          const roleLabel = isStarter ? "Titular" : isBench ? "Suplente" : "Sin convocar";
           return (
-            <button className={`squad-row clickable ${!isStarter && !isBench ? "bench" : ""}`} key={player.id} onClick={() => setDetailId(player.id)}>
+            <button className={`squad-row clickable ${role === "fuera" ? "bench" : ""}`} key={player.id} onClick={() => setManageId(player.id)}>
               <PlayerAvatar player={player} small />
               <PositionTag position={player.position} />
               <span>
                 <strong><TeamBadge player={player} />{player.name}{settings.captain && player.id === captain && <Crown />}</strong>
-                <small>{player.position} · {player.team} · {isStarter ? "Titular" : isBench ? "Suplente" : "Sin convocar"}</small>
-                <FormStrip points={player.last5} />
+                <small>{player.position} · {player.team}</small>
+                <span className="convocatoria-meta"><span className={`role-pill ${role}`}>{roleLabel}</span><FormStrip points={player.last5} /></span>
               </span>
               <div><b>{Math.round(player.seasonPoints)}</b><small>pts</small></div>
             </button>
@@ -270,6 +303,54 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
           </div>
         </div>
       )}
+
+      {manageId && (() => {
+        const player = playersById.get(manageId);
+        if (!player) return null;
+        const isStarter = starterIds.includes(manageId);
+        const isBench = benchIds.includes(manageId);
+        const swapTargets = swapForId
+          ? slots.map((sid, i) => ({ sid, i })).filter(({ sid, i }) => sid !== null && slotPositions[i] === player.position)
+          : [];
+        return (
+          <div className="modal-backdrop" onMouseDown={() => { setManageId(null); setSwapForId(null); }}>
+            <div className="bid-modal" onMouseDown={(event) => event.stopPropagation()}>
+              <button className="modal-close" onClick={() => { setManageId(null); setSwapForId(null); }}><X /></button>
+              <PlayerAvatar player={player} />
+              <PositionTag position={player.position} />
+              <h2><TeamBadge player={player} />{player.name}</h2>
+              <p>{player.team} · {money(player.value)} · {Math.round(player.seasonPoints)} pts</p>
+              {swapForId ? (
+                <>
+                  <label>¿A QUÉ TITULAR SUSTITUYE?</label>
+                  <div className="player-select-list">
+                    {swapTargets.map(({ sid, i }) => {
+                      const current = playersById.get(sid as string);
+                      if (!current) return null;
+                      return (
+                        <button key={i} onClick={() => { assignSlot(i, manageId); setManageId(null); setSwapForId(null); }}>
+                          <PlayerAvatar player={current} small />
+                          <span><strong><TeamBadge player={current} />{current.name}</strong><small>Titular · {Math.round(current.seasonPoints)} pts</small></span>
+                          <em>{money(current.value)}</em>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button className="ghost-button" onClick={() => setSwapForId(null)}>Volver</button>
+                </>
+              ) : (
+                <div className="manage-actions">
+                  <button className="button full" disabled={isStarter} onClick={() => makeStarter(manageId)}><Shirt size={15} /> Poner de titular</button>
+                  {settings.bench && <button className="ghost-button" disabled={isBench} onClick={() => moveToBench(manageId)}><ArrowDown size={14} /> Mandar al banquillo</button>}
+                  <button className="ghost-button" disabled={!isStarter && !isBench} onClick={() => unconvene(manageId)}>Quitar de la convocatoria</button>
+                  {settings.captain && isStarter && manageId !== captain && <button className="ghost-button" onClick={() => { setCaptain(manageId); setDirty(true); setManageId(null); }}><Crown size={14} /> Hacer capitán</button>}
+                  <button className="ghost-button" onClick={() => { setDetailId(manageId); setManageId(null); }}>Ver ficha y cláusula</button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {clausePlayer && (
         <div className="modal-backdrop" onMouseDown={() => setClauseId(null)}>

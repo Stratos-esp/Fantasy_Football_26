@@ -8,6 +8,13 @@ export type MarketSettings = {
   visibleBids: boolean;
 };
 
+// Normas configurables de puntuación y economía de la liga.
+export type LeagueRules = {
+  unalignedPenalty: number;       // puntos por cada hueco de titular sin alinear (negativo)
+  negativeBalancePenalty: number; // puntos si terminas la jornada con saldo negativo (negativo)
+  moneyPerPoint: number;          // € que ganas por cada punto positivo de la jornada
+};
+
 export type LeagueSettings = {
   captain: boolean;
   captainMultiplier: number;
@@ -16,6 +23,13 @@ export type LeagueSettings = {
   marketSize: number;
   clauseMultiplier: number;
   market: MarketSettings;
+  rules: LeagueRules;
+};
+
+export const defaultLeagueRules: LeagueRules = {
+  unalignedPenalty: -4,
+  negativeBalancePenalty: 0,
+  moneyPerPoint: 0,
 };
 
 export const defaultLeagueSettings: LeagueSettings = {
@@ -26,6 +40,7 @@ export const defaultLeagueSettings: LeagueSettings = {
   marketSize: 8,
   clauseMultiplier: 1.4,
   market: { bids: true, fixedPrice: true, clauses: true, directTransfers: true, visibleBids: true },
+  rules: defaultLeagueRules,
 };
 
 export function parseLeagueSettings(raw: unknown): LeagueSettings {
@@ -47,6 +62,18 @@ export function parseLeagueSettings(raw: unknown): LeagueSettings {
       directTransfers: bool(market.directTransfers, true),
       visibleBids: bool(market.visibleBids, true),
     },
+    rules: parseLeagueRules((data as Record<string, unknown>).rules),
+  };
+}
+
+function parseLeagueRules(raw: unknown): LeagueRules {
+  const data = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const num = (value: unknown, fallback: number, min: number, max: number) =>
+    typeof value === "number" && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+  return {
+    unalignedPenalty: num(data.unalignedPenalty, defaultLeagueRules.unalignedPenalty, -50, 0),
+    negativeBalancePenalty: num(data.negativeBalancePenalty, defaultLeagueRules.negativeBalancePenalty, -100, 0),
+    moneyPerPoint: num(data.moneyPerPoint, defaultLeagueRules.moneyPerPoint, 0, 5_000_000),
   };
 }
 

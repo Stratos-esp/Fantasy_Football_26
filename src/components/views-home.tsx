@@ -2,7 +2,7 @@
 
 import { Activity, Check, Crown, Gavel, Shield, Trophy, TrendingUp, Users } from "lucide-react";
 import { money, nameAndSurname, pitchCoordinates, timeAgo } from "@/lib/client";
-import type { LeagueState } from "@/lib/types";
+import { formations, type LeagueState } from "@/lib/types";
 import type { Section } from "@/components/fantasy-app";
 import { PlayerAvatar, TeamBadge, Trend } from "@/components/ui";
 
@@ -16,7 +16,20 @@ export function HomeView({ state, onNavigate }: { state: LeagueState; onNavigate
     : null;
   const squadValue = state.squad.reduce((sum, p) => sum + p.value, 0);
   const playersById = new Map(state.squad.map((p) => [p.id, p]));
-  const starters = state.lineup.starters.map((id) => playersById.get(id)).filter(Boolean);
+  // Coloca cada titular en su posición fija de la formación; los huecos vacíos
+  // (por una venta o cláusula) se quedan vacíos sin descuadrar al resto.
+  const shape = formations[state.lineup.formation] ?? formations["4-4-2"];
+  const slotLines: [string, number][] = [["POR", 1], ["DEF", shape.DEF], ["MED", shape.MED], ["DEL", shape.DEL]];
+  const byPosition: Record<string, NonNullable<ReturnType<typeof playersById.get>>[]> = { POR: [], DEF: [], MED: [], DEL: [] };
+  for (const id of state.lineup.starters) {
+    const player = playersById.get(id);
+    if (player) byPosition[player.position]?.push(player);
+  }
+  const slots: (typeof state.squad[number] | null)[] = [];
+  for (const [pos, n] of slotLines) {
+    for (let i = 0; i < n; i += 1) slots.push(byPosition[pos][i] ?? null);
+  }
+  const filledStarters = slots.filter(Boolean) as typeof state.squad;
   const coordinates = pitchCoordinates(state.lineup.formation, "vertical");
   const top = state.members.slice(0, 4);
   const chaser = rank === 1 && state.members.length > 1 ? state.members[1] : null;
@@ -33,19 +46,26 @@ export function HomeView({ state, onNavigate }: { state: LeagueState; onNavigate
       <section className="panel lineup-panel">
         <div className="panel-head"><div><span className="kicker">TU ONCE</span><h2>Alineación de la jornada {state.league.currentMatchday}</h2></div><button className="ghost-button" onClick={() => onNavigate("plantilla")}>Editar once</button></div>
         <div className="pitch compact-pitch vertical-pitch home-vertical-pitch">
-          {starters.map((player, index) => player && (
-            <button key={player.id} className="pitch-player" style={{ left: `${coordinates[index]?.left ?? 50}%`, top: `${coordinates[index]?.top ?? 50}%` }} onClick={() => onNavigate("plantilla")}>
-              <PlayerAvatar player={player} small />
-              {state.league.settings.captain && player.id === state.lineup.captainPlayerId && <Crown className="captain-crown" />}
-              <strong><TeamBadge player={player} />{nameAndSurname(player.name)}</strong>
-              <span>{player.lastPoints ?? "—"}</span>
-            </button>
-          ))}
+          {slots.map((player, index) => {
+            const coordinate = coordinates[index];
+            const style = { left: `${coordinate?.left ?? 50}%`, top: `${coordinate?.top ?? 50}%` };
+            if (!player) {
+              return <button key={`empty-${index}`} className="pitch-player empty" style={style} onClick={() => onNavigate("plantilla")}><span className="empty-slot" /></button>;
+            }
+            return (
+              <button key={player.id} className="pitch-player" style={style} onClick={() => onNavigate("plantilla")}>
+                <PlayerAvatar player={player} small />
+                {state.league.settings.captain && player.id === state.lineup.captainPlayerId && <Crown className="captain-crown" />}
+                <strong><TeamBadge player={player} />{nameAndSurname(player.name)}</strong>
+                <span>{player.lastPoints ?? "—"}</span>
+              </button>
+            );
+          })}
         </div>
         <div className="lineup-footer">
-          <span><Check /> {starters.length === 11 ? "Once completo" : `Faltan ${11 - starters.length} titulares`}</span>
+          <span><Check /> {filledStarters.length === 11 ? "Once completo" : `Faltan ${11 - filledStarters.length} titulares`}</span>
           <span>{state.lineup.formation}</span>
-          <span>Valor: {money(starters.reduce((sum, p) => sum + (p?.value ?? 0), 0))}</span>
+          <span>Valor: {money(filledStarters.reduce((sum, p) => sum + p.value, 0))}</span>
         </div>
       </section>
 
