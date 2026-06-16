@@ -30,6 +30,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ lea
       case "sellToMarket": return sellToMarket(context, body);
       case "listFixed": return listFixed(context, body);
       case "unlist": return unlist(context, body);
+      case "increaseClause": return increaseClause(context, body);
       case "payClause": return payClause(context, body);
       case "makeOffer": return makeOffer(context, body);
       case "respondOffer": return respondOffer(context, body);
@@ -157,6 +158,44 @@ async function unlist(context: MemberContext, body: Payload) {
   const listing = await getOpenListing(context, body.listingId);
   if (listing.seller_member_id !== context.member.id) throw new ServiceError("Solo puedes retirar tus propias ventas.");
   await context.db.from("fantasy_market_listings").update({ status: "cancelled", resolved_at: new Date().toISOString() }).eq("id", listing.id);
+  return NextResponse.json({ ok: true });
+}
+
+async function increaseClause(context: MemberContext, body: Payload) {
+  const settings = leagueSettings(context.league);
+  if (!settings.market.clauses) throw new ServiceError("Las cláusulas están desactivadas en esta liga.");
+  if (!body.playerId) throw new ServiceError("Falta el jugador.");
+  const amount = Math.round(Number(body.amount));
+  if (!Number.isFinite(amount) || amount < 100000) throw new ServiceError("Indica una cantidad válida en millones.");
+  const budget = Number(context.member.budget);
+  if (amount > budget) throw new ServiceError("No tienes saldo suficiente para esa inversión.");
+  const { data: squadRow } = await context.db
+    .from("fantasy_squads")
+    .select("id, clause_value, player_id")
+    .eq("league_member_id", context.member.id)
+    .eq("player_id", body.playerId)
+    .maybeSingle();
+  if (!squadRow) throw new ServiceError("Ese jugador no está en tu plantilla.");
+  let base = squadRow.clause_value === null ? null : Number(squadRow.clause_value);
+  if (base === null) {
+    const { data: playerRow } = await context.db.from("fantasy_players").select("current_value").eq("id", body.playerId).maybeSingle();
+    base = Number(playerRow?.current_value ?? 0);
+  }
+  const newClause = base + amount; // inversión 1:1
+  const { error: clauseError } = await context.db.from("fantasy_squads").update({ clause_value: newClause }).eq("id", squadRow.id);
+  if (clauseError) throw new ServiceError(`No se pudo actualizar la cláusula: ${clauseError.message}`, 500);
+  const { error: budgetError } = await context.db.from("fantasy_league_members").update({ budget: budget - amount }).eq("id", context.member.id);
+  if (budgetError) {
+    await context.db.from("fantasy_squads").update({ clause_value: base }).eq("id", squadRow.id); // revertir
+    throw new ServiceError(`No se pudo descontar el saldo: ${budgetError.message}`, 500);
+  }
+  const name = await playerName(context, body.playerId);
+  await context.db.from("fantasy_audit_log").insert({
+    league_id: context.league.id,
+    actor_user_id: context.user.id,
+    action: "clause_increased",
+    after_data: { detail: `${context.member.team_name} invirtió ${money(amount)} para subir la cláusula de ${name} a ${money(newClause)}` },
+  });
   return NextResponse.json({ ok: true });
 }
 

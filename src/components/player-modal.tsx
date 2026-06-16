@@ -42,9 +42,29 @@ export function Sparkline({ points, dates }: { points: number[]; dates?: string[
   const pad = 6;
   const step = w / (points.length - 1);
   const coords = points.map((value, index) => [index * step, h - ((value - min) / range) * (h - 2 * pad) - pad] as const);
-  const path = coords.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-  const area = `${path} L${w},${h} L0,${h} Z`;
-  const up = points[points.length - 1] >= points[0];
+
+  // Punto donde empieza la temporada actual (si el histórico cruza el verano).
+  let boundary = -1;
+  let seasonLabel = "";
+  if (dates && dates.length === points.length) {
+    const latest = new Date(dates[dates.length - 1]);
+    if (!Number.isNaN(latest.getTime())) {
+      const year = latest.getFullYear();
+      const startYear = latest.getMonth() >= 6 ? year : year - 1; // julio en adelante = temporada nueva
+      const cutoff = new Date(startYear, 6, 1).getTime();
+      const idx = dates.findIndex((d) => { const t = new Date(d).getTime(); return !Number.isNaN(t) && t >= cutoff; });
+      if (idx > 0 && idx < points.length - 1) { boundary = idx; seasonLabel = `${startYear}/${String((startYear + 1) % 100).padStart(2, "0")}`; }
+    }
+  }
+  const split = boundary > 0;
+
+  const segment = (from: number, to: number) =>
+    coords.slice(from, to + 1).map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const prevPath = split ? segment(0, boundary) : "";
+  const curPath = split ? segment(boundary, points.length - 1) : segment(0, points.length - 1);
+  const areaStart = split ? coords[boundary][0] : 0;
+  const area = `${curPath} L${w},${h} L${areaStart},${h} Z`;
+  const up = points[points.length - 1] >= points[split ? boundary : 0];
   const color = up ? "var(--positive)" : "var(--danger)";
 
   function track(clientX: number, target: HTMLElement) {
@@ -54,9 +74,16 @@ export function Sparkline({ points, dates }: { points: number[]; dates?: string[
   }
 
   const activeLeft = active === null ? 0 : (active / (points.length - 1)) * 100;
+  const activeColor = active !== null && split && active < boundary ? "var(--muted)" : color;
 
   return (
     <div className="sparkline-wrap">
+      {split && (
+        <div className="spark-legend">
+          <span className="spark-leg prev"><i />Temp. anterior</span>
+          <span className="spark-leg cur"><i style={{ background: color }} />{seasonLabel}</span>
+        </div>
+      )}
       <div
         className="sparkline-plot"
         onPointerDown={(e) => track(e.clientX, e.currentTarget)}
@@ -65,17 +92,19 @@ export function Sparkline({ points, dates }: { points: number[]; dates?: string[
       >
         <svg viewBox={`0 0 ${w} ${h}`} className="sparkline" preserveAspectRatio="none">
           <path d={area} fill={color} opacity="0.12" />
-          <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+          {split && <path d={prevPath} fill="none" stroke="var(--muted)" strokeWidth="2" strokeDasharray="4 3" strokeLinejoin="round" strokeLinecap="round" opacity="0.65" />}
+          <path d={curPath} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+          {split && <line className="spark-season-divider" x1={coords[boundary][0]} y1="0" x2={coords[boundary][0]} y2={h} />}
           {active !== null && <line className="spark-cursor" x1={coords[active][0]} y1="0" x2={coords[active][0]} y2={h} />}
-          {coords.map(([x, y], i) => i === coords.length - 1 && active === null && <circle key={i} cx={x} cy={y} r="3" fill={color} />)}
-          {active !== null && <circle cx={coords[active][0]} cy={coords[active][1]} r="3.5" fill={color} stroke="var(--surface)" strokeWidth="1.5" />}
+          {active === null && <circle cx={coords[coords.length - 1][0]} cy={coords[coords.length - 1][1]} r="3" fill={color} />}
+          {active !== null && <circle cx={coords[active][0]} cy={coords[active][1]} r="3.5" fill={activeColor} stroke="var(--surface)" strokeWidth="1.5" />}
         </svg>
         <span className="spark-axis-y spark-axis-max">{money(max)}</span>
         <span className="spark-axis-y spark-axis-min">{money(min)}</span>
         {active !== null && (
           <div className="spark-tooltip" style={{ left: `${activeLeft}%` }}>
             <strong>{money(points[active])}</strong>
-            {dates && dates[active] && <small>{sparkDate(dates[active])}</small>}
+            {dates && dates[active] && <small>{sparkDate(dates[active])}{split ? ` · ${active < boundary ? "Temp. ant." : seasonLabel}` : ""}</small>}
           </div>
         )}
       </div>

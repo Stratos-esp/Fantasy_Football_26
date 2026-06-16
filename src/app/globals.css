@@ -467,16 +467,30 @@ a { color:inherit; text-decoration:none; }
 .panel-head h2{font-size:16px}
 .counter{font-size:11px}
 
-/* Mercado: resumen y stats */
+/* Mercado: resumen */
 .market-summary small{font-size:9px}
 .market-summary strong{font-size:16px}
 .market-summary svg{width:24px}
-.player-stats small{font-size:9px}
-.player-stats strong{font-size:13px}
-.market-card h3{font-size:16px}
-.market-card>p{font-size:11px}
 .tab-help{font-size:12.5px}
 .tabs button{font-size:13px}
+
+/* === Mercado rediseñado: tarjeta limpia (rejilla en escritorio) === */
+.market-grid{grid-template-columns:repeat(3,1fr);gap:14px}
+.market-card{position:relative;display:flex;flex-direction:column;padding:16px}
+.market-card-id{display:flex;align-items:center;gap:12px;width:100%;min-width:0;text-align:left}
+.market-card-avatar{display:flex;flex-direction:column;align-items:center;gap:6px;flex:0 0 auto}
+.market-card-avatar .position-tag{margin:0}
+.market-card-name{display:flex;flex-direction:column;min-width:0}
+.market-card-name h3{font:700 16px var(--font-display);margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.market-card-name p{font-size:11px;color:var(--muted);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.market-card-id .trend{margin-left:auto;flex:0 0 auto;align-self:center}
+.player-stats{grid-template-columns:1.1fr .9fr .9fr;margin:14px 0}
+.player-stats small{font-size:8px;color:var(--muted)}
+.player-stats strong{font-size:14px}
+.market-card-cta{margin-top:auto;display:flex;flex-direction:column}
+.market-card-cta .button,.market-card-cta .bid-done{width:100%}
+.bid-done{height:44px;border-radius:11px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.bid-done svg{width:14px}
 
 /* Base de datos de jugadores */
 .players-head{font-size:11px}
@@ -507,32 +521,26 @@ a { color:inherit; text-decoration:none; }
   .app-content{padding:16px 13px 92px}
 
   /* --- Mercado en móvil: tarjeta horizontal tipo lista --- */
-  .market-grid{grid-template-columns:1fr;gap:11px}
+  .market-grid{grid-template-columns:1fr;gap:11px;max-width:560px;margin-inline:auto}
   .market-card{
     display:grid;
-    grid-template-columns:auto 1fr auto;
+    grid-template-columns:1fr auto;
     grid-template-areas:
-      "time time time"
-      "avatar info action"
-      "stats stats stats"
-      "owner owner owner";
-    align-items:center;column-gap:13px;row-gap:10px;padding:14px 15px;
+      "time time"
+      "id   cta"
+      "stats stats";
+    align-items:center;column-gap:12px;row-gap:11px;padding:14px 15px;
   }
-  .market-card.bidding{box-shadow:0 0 0 2px var(--accent),var(--shadow)}
   .market-card .card-countdown{position:static;grid-area:time;justify-self:start;background:var(--surface-2);color:var(--muted);font-weight:800;font-size:10px}
-  .market-card-top{grid-area:avatar;display:flex;flex-direction:column;align-items:center;gap:5px;align-self:center}
-  .market-card-top .player-avatar{width:56px;height:56px;font-size:13px}
-  .market-card-top>.trend{display:none}
-  .market-card-top>.position-tag{display:inline-grid;margin-left:0;min-width:42px;min-height:26px;font-size:10px}
-  .market-card-id{grid-area:info;display:flex;flex-direction:column;gap:3px;min-width:0}
-  .market-card h3{margin:0;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .market-card>p{margin:0;font-size:12px}
-  .player-stats{grid-area:stats;margin:0;border-top:1px solid var(--line);padding-top:10px;grid-template-columns:1fr 1fr 1fr}
-  .player-stats span{padding-left:12px}
-  .player-stats span:first-child{padding-left:0}
-  .player-stats strong{font-size:14px}
-  .market-card>.button,.market-card>.bid-done{grid-area:action;width:auto;align-self:center;min-height:44px;height:auto;padding:0 20px;font-size:13px;border-radius:12px;white-space:nowrap}
-  .market-owner{grid-area:owner;margin:0;text-align:left;font-size:9px}
+  .market-card-id{grid-area:id;gap:12px}
+  .market-card-id .trend{display:none}
+  .market-card-avatar .player-avatar{width:56px;height:56px;font-size:13px}
+  .market-card-avatar .position-tag{min-width:42px;min-height:26px;font-size:10px}
+  .market-card-name h3{font-size:16px}
+  .player-stats{grid-area:stats;margin:0;border-top:1px solid var(--line);padding-top:11px;grid-template-columns:1fr 1fr 1fr}
+  .market-card-cta{grid-area:cta;margin:0;align-items:center;justify-content:center}
+  .market-card-cta .button,.market-card-cta .bid-done{width:auto;min-height:46px;padding:0 22px;font-size:13px;white-space:nowrap}
+  .market-card-cta .market-owner{display:none}
 
   /* --- Listas y controles más grandes en móvil --- */
   .player-avatar.small{width:44px;height:44px;font-size:10px}
@@ -547,3 +555,20 @@ a { color:inherit; text-decoration:none; }
   .bottom-nav button{font-size:9px}
   .bottom-nav svg{width:21px}
 }
+
+/* ============================================================
+   Indicador de carga global + confirmación
+   ============================================================ */
+.busy-overlay{position:fixed;inset:0;z-index:95;display:grid;place-items:center;background:rgba(5,14,9,.30);backdrop-filter:blur(2px)}
+.busy-card{display:inline-flex;align-items:center;gap:11px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:14px 22px;font-size:14px;font-weight:700;box-shadow:0 18px 50px rgba(0,0,0,.28)}
+.spinner{width:20px;height:20px;border-radius:50%;border:2.5px solid var(--line);border-top-color:var(--positive);animation:spin .7s linear infinite;flex:0 0 auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{display:flex;align-items:center;gap:9px}
+.toast svg{flex:0 0 auto}
+
+/* Separación de temporadas en la gráfica de valor */
+.spark-legend{display:flex;gap:16px;margin-bottom:7px;font-size:10px;font-weight:800;color:var(--muted)}
+.spark-leg{display:inline-flex;align-items:center;gap:6px}
+.spark-leg i{width:15px;height:3px;border-radius:2px;display:inline-block}
+.spark-leg.prev i{background:var(--muted);opacity:.55}
+.spark-season-divider{stroke:var(--ink);stroke-opacity:.20;stroke-width:1;stroke-dasharray:2 3;vector-effect:non-scaling-stroke}

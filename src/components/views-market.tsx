@@ -26,6 +26,7 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
   const [bidTarget, setBidTarget] = useState<MarketListing | null>(null);
   const [offerTarget, setOfferTarget] = useState<RivalSquadEntry | null>(null);
   const [listTarget, setListTarget] = useState<SquadEntry | null>(null);
+  const [clauseTarget, setClauseTarget] = useState<SquadEntry | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [lineupRival, setLineupRival] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
@@ -75,6 +76,16 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
     }
   }
 
+  async function confirmClause() {
+    if (!clauseTarget) return;
+    const value = moneyInput(amount);
+    if (!value) { notify("Indica cuánto quieres invertir en millones.", "error"); return; }
+    if (value > state.myMember.budget) { notify("No tienes saldo suficiente para esa inversión.", "error"); return; }
+    if (await run({ action: "increaseClause", playerId: clauseTarget.id, amount: value }, "Cláusula aumentada.")) {
+      setClauseTarget(null); setAmount("");
+    }
+  }
+
   const memberName = (memberId: string) => state.members.find((m) => m.id === memberId)?.teamName ?? "—";
 
   return (
@@ -109,25 +120,30 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
               <article className={`market-card ${listing.myBid !== null ? "bidding" : ""}`} key={listing.id}>
                 {listing.kind === "bid" && <span className="card-countdown" title="Cierre de la subasta">{countdown(listing.closesAt)}</span>}
                 <button className="market-card-id" onClick={() => setDetailId(listing.player.id)}>
-                  <div className="market-card-top"><PlayerAvatar player={listing.player} /><PositionTag position={listing.player.position} /><Trend player={listing.player} /></div>
-                  <h3><TeamBadge player={listing.player} />{listing.player.name}</h3>
-                  <p>{listing.player.team}</p>
+                  <span className="market-card-avatar"><PlayerAvatar player={listing.player} /><PositionTag position={listing.player.position} /></span>
+                  <span className="market-card-name">
+                    <h3><TeamBadge player={listing.player} />{listing.player.name}</h3>
+                    <p>{listing.player.team}</p>
+                  </span>
+                  <Trend player={listing.player} />
                 </button>
                 <div className="player-stats">
                   <span><small>{listing.kind === "bid" ? "PUJA MÍN." : "PRECIO"}</small><strong>{money(listing.askingPrice)}</strong></span>
                   <span><small>PUNTOS</small><strong>{Math.round(listing.player.seasonPoints)}</strong></span>
                   <span><small>{listing.kind === "bid" ? "PUJAS" : "VENDE"}</small><strong>{listing.kind === "bid" ? listing.bidCount : (listing.sellerName ?? "Liga")}</strong></span>
                 </div>
-                {listing.kind === "bid" ? (
-                  listing.myBid !== null
-                    ? <button className="bid-done" onClick={() => { setBidTarget(listing); setAmount(String(listing.myBid! / 1e6)); }}><Check /> Tu puja: {money(listing.myBid)} · cambiar</button>
-                    : <button className="button full" disabled={!state.league.settings.market.bids} onClick={() => { setBidTarget(listing); setAmount(""); }}>Pujar <Gavel size={16} /></button>
-                ) : (
-                  <button className="button full" disabled={busy || !state.league.settings.market.fixedPrice} onClick={async () => {
-                    if (window.confirm(`¿Comprar a ${listing.player.name} por ${money(listing.askingPrice)}?`)) await run({ action: "buyFixed", listingId: listing.id }, "¡Fichaje completado!");
-                  }}>Comprar ya <Tag size={15} /></button>
-                )}
-                <small className="market-owner">{listing.kind === "bid" ? "Puja secreta · gana la más alta al cierre" : `Venta directa de ${listing.sellerName ?? "la liga"}`}</small>
+                <div className="market-card-cta">
+                  {listing.kind === "bid" ? (
+                    listing.myBid !== null
+                      ? <button className="bid-done" onClick={() => { setBidTarget(listing); setAmount(String(listing.myBid! / 1e6)); }}><Check /> Tu puja: {money(listing.myBid)} · cambiar</button>
+                      : <button className="button full" disabled={!state.league.settings.market.bids} onClick={() => { setBidTarget(listing); setAmount(""); }}>Pujar <Gavel size={16} /></button>
+                  ) : (
+                    <button className="button full" disabled={busy || !state.league.settings.market.fixedPrice} onClick={async () => {
+                      if (window.confirm(`¿Comprar a ${listing.player.name} por ${money(listing.askingPrice)}?`)) await run({ action: "buyFixed", listingId: listing.id }, "¡Fichaje completado!");
+                    }}>Comprar ya <Tag size={15} /></button>
+                  )}
+                  <small className="market-owner">{listing.kind === "bid" ? "Puja secreta · gana la más alta al cierre" : `Venta directa de ${listing.sellerName ?? "la liga"}`}</small>
+                </div>
               </article>
             ))}
           </section>
@@ -151,6 +167,7 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
                       if (window.confirm(`¿Vender a ${player.name} al mercado por ${money(player.value)}? La operación es inmediata.`)) await run({ action: "sellToMarket", playerId: player.id }, "Jugador vendido al mercado.");
                     }}>Vender ya</button>
                     <button className="ghost-button" disabled={!state.league.settings.market.fixedPrice} onClick={() => { setListTarget(player); setAmount(String(player.value / 1e6)); }}>Precio fijo</button>
+                    <button className="ghost-button" disabled={!state.league.settings.market.clauses} onClick={() => { setClauseTarget(player); setAmount(""); }}><LockKeyhole size={13} /> Subir cláusula</button>
                   </div>
                 </div>
               ))}
@@ -263,12 +280,12 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
         </div>
       )}
 
-      {(bidTarget || offerTarget || listTarget) && (
-        <div className="modal-backdrop" onMouseDown={() => { setBidTarget(null); setOfferTarget(null); setListTarget(null); }}>
+      {(bidTarget || offerTarget || listTarget || clauseTarget) && (
+        <div className="modal-backdrop" onMouseDown={() => { setBidTarget(null); setOfferTarget(null); setListTarget(null); setClauseTarget(null); }}>
           <div className="bid-modal" onMouseDown={(event) => event.stopPropagation()}>
-            <button className="modal-close" onClick={() => { setBidTarget(null); setOfferTarget(null); setListTarget(null); }}><X /></button>
+            <button className="modal-close" onClick={() => { setBidTarget(null); setOfferTarget(null); setListTarget(null); setClauseTarget(null); }}><X /></button>
             {(() => {
-              const player = bidTarget?.player ?? offerTarget ?? listTarget!;
+              const player = bidTarget?.player ?? offerTarget ?? listTarget ?? clauseTarget!;
               return <>
                 <PlayerAvatar player={player} />
                 <PositionTag position={player.position} />
@@ -276,14 +293,17 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
                 <p>{player.team} · Valor {money(player.value)}</p>
               </>;
             })()}
-            <label>{bidTarget ? `TU PUJA (MÍNIMO ${(bidTarget.askingPrice / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 1 })})` : offerTarget ? "TU OFERTA" : "PRECIO DE VENTA"}</label>
+            <label>{bidTarget ? `TU PUJA (MÍNIMO ${(bidTarget.askingPrice / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 1 })})` : offerTarget ? "TU OFERTA" : listTarget ? "PRECIO DE VENTA" : "INVERTIR (SUBE LA CLÁUSULA 1:1)"}</label>
             <div className="money-input">
               <input autoFocus inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0,0" />
               <span>M€</span>
             </div>
+            {clauseTarget && (
+              <small>Cláusula actual: {clauseTarget.clauseValue !== null ? money(clauseTarget.clauseValue) : "—"}{moneyInput(amount) ? ` → nueva ${money((clauseTarget.clauseValue ?? clauseTarget.value) + moneyInput(amount)!)}` : ""}</small>
+            )}
             <small>Saldo disponible: {money(state.myMember.budget)}</small>
-            <button className="button full" disabled={busy} onClick={bidTarget ? confirmBid : offerTarget ? confirmOffer : confirmList}>
-              {bidTarget ? <>Confirmar puja <Gavel size={17} /></> : offerTarget ? <>Enviar oferta <CircleDollarSign size={17} /></> : <>Publicar venta <Tag size={16} /></>}
+            <button className="button full" disabled={busy} onClick={bidTarget ? confirmBid : offerTarget ? confirmOffer : listTarget ? confirmList : confirmClause}>
+              {bidTarget ? <>Confirmar puja <Gavel size={17} /></> : offerTarget ? <>Enviar oferta <CircleDollarSign size={17} /></> : listTarget ? <>Publicar venta <Tag size={16} /></> : <>Subir cláusula <LockKeyhole size={16} /></>}
             </button>
           </div>
         </div>

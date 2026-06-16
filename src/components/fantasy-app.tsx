@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
-  Bell, CalendarDays, ChevronDown, Copy, Gavel, Home, LayoutGrid, LogOut,
+  Bell, CalendarDays, Check, ChevronDown, Copy, Gavel, Home, LayoutGrid, LogOut,
   MessageCircle, Search, Settings, Shield, Shirt, Trophy, Users, X,
 } from "lucide-react";
 import { Brand } from "@/components/brand";
@@ -44,6 +44,7 @@ export function FantasyApp() {
   const [toast, setToast] = useState<{ text: string; kind: "ok" | "error" } | null>(null);
   const [leagueMenu, setLeagueMenu] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [pending, setPending] = useState(false);
 
   const notify: Notify = useCallback((text, kind = "ok") => {
     setToast({ text, kind });
@@ -97,10 +98,15 @@ export function FantasyApp() {
   }, [refresh]);
 
   const act = useCallback(async (url: string, body?: unknown, method: "POST" | "PUT" = "POST") => {
-    const result = await apiPost<{ ok: boolean }>(url, body, method);
-    if (!result.ok) { notify(result.error, "error"); return false; }
-    await refresh();
-    return true;
+    setPending(true);
+    try {
+      const result = await apiPost<{ ok: boolean }>(url, body, method);
+      if (!result.ok) { notify(result.error, "error"); return false; }
+      await refresh();
+      return true;
+    } finally {
+      setPending(false);
+    }
   }, [notify, refresh]);
 
   async function logout() {
@@ -241,7 +247,13 @@ export function FantasyApp() {
         ))}
       </nav>
 
-      {toast && <div className={`toast ${toast.kind}`}>{toast.text}</div>}
+      {pending && (
+        <div className="busy-overlay" role="status" aria-live="polite">
+          <span className="busy-card"><span className="spinner" />Procesando…</span>
+        </div>
+      )}
+
+      {toast && <div className={`toast ${toast.kind}`}>{toast.kind === "ok" ? <Check size={16} /> : <X size={16} />}<span>{toast.text}</span></div>}
     </div>
   );
 }

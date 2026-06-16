@@ -29,6 +29,16 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   el valor mínimo y máximo del periodo y la fecha de inicio y fin, y es
   interactiva: al pasar el ratón o tocar la gráfica aparece el valor exacto y la
   fecha de ese punto.
+- La gráfica de evolución del valor distingue la temporada actual de la
+  anterior: el tramo de la temporada pasada se dibuja atenuado y a rayas, con
+  una línea divisoria y una leyenda que indica a qué temporada pertenece cada
+  parte.
+- Indicador de carga global: cualquier acción que tarde (simular jornadas,
+  vender, pujar, pagar cláusula, guardar ajustes…) muestra un símbolo de carga
+  mientras se procesa y una confirmación con visto bueno al terminar.
+- Nueva opción para invertir saldo y aumentar la cláusula de tus jugadores
+  (relación 1:1): el dinero invertido se descuenta de tu saldo y blindar a un
+  jugador encarece su cláusula para los rivales.
 
 ### Cambiado
 
