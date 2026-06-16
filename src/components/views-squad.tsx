@@ -131,6 +131,7 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
                 return (
                   <div key={id} className="bench-chip">
                     <PlayerAvatar player={player} small />
+                    <PositionTag position={player.position} />
                     <span><strong><TeamBadge player={player} />{nameAndSurname(player.name)}</strong><small>{player.position}</small></span>
                     <div className="bench-actions">
                       <button onClick={() => moveBench(id, -1)} disabled={index === 0} aria-label="Subir"><ArrowUp /></button>
@@ -153,6 +154,7 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
           return (
             <button className={`squad-row clickable ${!isStarter && !isBench ? "bench" : ""}`} key={player.id} onClick={() => setDetailId(player.id)}>
               <PlayerAvatar player={player} small />
+              <PositionTag position={player.position} />
               <span>
                 <strong><TeamBadge player={player} />{player.name}{settings.captain && player.id === captain && <Crown />}</strong>
                 <small>{player.position} · {player.team} · {isStarter ? "Titular" : isBench ? "Suplente" : "Sin convocar"}</small>

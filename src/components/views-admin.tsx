@@ -144,7 +144,7 @@ export function SettingsView({ state, act, notify, theme, setTheme }: { state: L
     if (ok) notify("Nombre de equipo actualizado.");
   }
 
-  const themes: [string, string][] = [["stratos", "Verde"], ["classic", "Comunio clásico"], ["midnight", "Medianoche"], ["sand", "Arena"]];
+  const themes: [string, string][] = [["stratos", "Verde"], ["classic", "Claro suave"], ["midnight", "Noche azul"], ["sand", "Grafito cálido"]];
   const marketRows: [keyof LeagueSettings["market"], string, string][] = [
     ["bids", "Pujas", "Subastas diarias con ofertas ocultas"],
     ["fixedPrice", "Precio fijo", "Compra inmediata por el precio marcado"],

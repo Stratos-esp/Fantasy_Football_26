@@ -17,7 +17,7 @@ export function HomeView({ state, onNavigate }: { state: LeagueState; onNavigate
   const squadValue = state.squad.reduce((sum, p) => sum + p.value, 0);
   const playersById = new Map(state.squad.map((p) => [p.id, p]));
   const starters = state.lineup.starters.map((id) => playersById.get(id)).filter(Boolean);
-  const coordinates = pitchCoordinates(state.lineup.formation);
+  const coordinates = pitchCoordinates(state.lineup.formation, "vertical");
   const top = state.members.slice(0, 4);
   const chaser = rank === 1 && state.members.length > 1 ? state.members[1] : null;
 
@@ -32,7 +32,7 @@ export function HomeView({ state, onNavigate }: { state: LeagueState; onNavigate
 
       <section className="panel lineup-panel">
         <div className="panel-head"><div><span className="kicker">TU ONCE</span><h2>Alineación de la jornada {state.league.currentMatchday}</h2></div><button className="ghost-button" onClick={() => onNavigate("plantilla")}>Editar once</button></div>
-        <div className="pitch compact-pitch">
+        <div className="pitch compact-pitch vertical-pitch home-vertical-pitch">
           {starters.map((player, index) => player && (
             <button key={player.id} className="pitch-player" style={{ left: `${coordinates[index]?.left ?? 50}%`, top: `${coordinates[index]?.top ?? 50}%` }} onClick={() => onNavigate("plantilla")}>
               <PlayerAvatar player={player} small />

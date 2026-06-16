@@ -14,6 +14,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 - Modal de resultados en Clasificación para consultar las jornadas disputadas.
 - Ajuste para que cada miembro pueda cambiar el nombre de su equipo desde
   Ajustes.
+- Modal de rival desde Clasificación para ver alineación, plantilla completa,
+  enviar ofertas y pagar cláusulas.
 
 ### Cambiado
 
@@ -21,6 +23,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 - La vista Mi plantilla usa un campo vertical de abajo a arriba para configurar
   la alineación.
 - Los jugadores sin foto muestran iniciales dentro de un círculo de equipo.
+- La pantalla de Inicio muestra el once en campo vertical.
+- Las etiquetas de posición son más visibles en plantillas, banquillo y mercado.
+- Los temas alternativos se suavizaron, con dos opciones oscuras más cómodas.
 
 ### Corregido
 

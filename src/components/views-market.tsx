@@ -141,8 +141,9 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
             <div className="panel-head"><div><span className="kicker">TU PLANTILLA</span><h2>Vender jugadores</h2></div></div>
             <div className="sell-list">
               {state.squad.map((player) => (
-                <div className="sell-row" key={player.id}>
+                <div className="sell-row with-position" key={player.id}>
                   <PlayerAvatar player={player} small />
+                  <PositionTag position={player.position} />
                   <span><strong><TeamBadge player={player} />{player.name}</strong><small>{player.position} · {player.team} · Cláusula {player.clauseValue ? money(player.clauseValue) : "—"}</small></span>
                   <em>{money(player.value)}</em>
                   <div className="row-actions">
@@ -159,8 +160,9 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
             <div className="panel-head"><div><span className="kicker">EN VENTA</span><h2>Tus anuncios</h2></div></div>
             <div className="sell-list">
               {state.myListings.map((listing) => (
-                <div className="sell-row" key={listing.id}>
+                <div className="sell-row with-position" key={listing.id}>
                   <PlayerAvatar player={listing.player} small />
+                  <PositionTag position={listing.player.position} />
                   <span><strong><TeamBadge player={listing.player} />{listing.player.name}</strong><small>Precio fijo</small></span>
                   <em>{money(listing.askingPrice)}</em>
                   <div className="row-actions">
@@ -189,6 +191,7 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
                     <div className="sell-row" key={player.id}>
                       <button className="sell-row-id" onClick={() => setDetailId(player.id)}>
                         <PlayerAvatar player={player} small />
+                        <PositionTag position={player.position} />
                         <span><strong><TeamBadge player={player} />{player.name}</strong><small>{player.position} · {player.team}</small></span>
                       </button>
                       <em>{money(player.value)}</em>
@@ -217,8 +220,9 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
             <div className="panel-head"><div><span className="kicker">RECIBIDAS</span><h2>Ofertas por tus jugadores</h2></div></div>
             <div className="sell-list">
               {state.offersIn.map((offer) => (
-                <div className="sell-row" key={offer.id}>
+                <div className="sell-row with-position" key={offer.id}>
                   <PlayerAvatar player={offer.player} small />
+                  <PositionTag position={offer.player.position} />
                   <span><strong><TeamBadge player={offer.player} />{offer.player.name}</strong><small>{offer.fromName} ofrece <b>{money(offer.amount)}</b> (valor {money(offer.player.value)})</small></span>
                   <div className="row-actions">
                     <button className="button button-small" disabled={busy} onClick={() => run({ action: "respondOffer", offerId: offer.id, accept: true }, "Traspaso completado.")}>Aceptar</button>
@@ -233,8 +237,9 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
             <div className="panel-head"><div><span className="kicker">ENVIADAS</span><h2>Tus pujas y ofertas</h2></div></div>
             <div className="sell-list">
               {myBids.map((listing) => (
-                <div className="sell-row" key={listing.id}>
+                <div className="sell-row with-position" key={listing.id}>
                   <PlayerAvatar player={listing.player} small />
+                  <PositionTag position={listing.player.position} />
                   <span><strong><TeamBadge player={listing.player} />{listing.player.name}</strong><small>Puja: {money(listing.myBid!)} · cierra en {countdown(listing.closesAt)}</small></span>
                   <div className="row-actions">
                     <button className="ghost-button" onClick={() => { setBidTarget(listing); setAmount(String(listing.myBid! / 1e6)); }}>Cambiar</button>
@@ -243,8 +248,9 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
                 </div>
               ))}
               {state.offersOut.map((offer) => (
-                <div className="sell-row" key={offer.id}>
+                <div className="sell-row with-position" key={offer.id}>
                   <PlayerAvatar player={offer.player} small />
+                  <PositionTag position={offer.player.position} />
                   <span><strong><TeamBadge player={offer.player} />{offer.player.name}</strong><small>Oferta a {offer.toName}: {money(offer.amount)}</small></span>
                   <div className="row-actions">
                     <button className="ghost-button" disabled={busy} onClick={() => run({ action: "cancelOffer", offerId: offer.id }, "Oferta cancelada.")}>Cancelar</button>

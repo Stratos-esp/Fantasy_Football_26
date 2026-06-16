@@ -1,22 +1,54 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Crown, Gavel, Play, Shield, Trophy, X } from "lucide-react";
-import { apiGet, apiPost, money, timeAgo } from "@/lib/client";
-import type { LeagueState } from "@/lib/types";
+import { CircleDollarSign, Crown, Gavel, LockKeyhole, Play, Shield, Shirt, Trophy, X } from "lucide-react";
+import { apiGet, apiPost, money, moneyInput, nameAndSurname, pitchCoordinates, positionOrder, timeAgo } from "@/lib/client";
+import type { LeagueState, RivalSquadEntry } from "@/lib/types";
 import type { Notify } from "@/components/fantasy-app";
-import { PlayerAvatar, TeamBadge } from "@/components/ui";
+import { PlayerAvatar, PositionTag, TeamBadge } from "@/components/ui";
 
 type Act = (url: string, body?: unknown, method?: "POST" | "PUT") => Promise<boolean>;
 
-export function StandingsView({ state }: { state: LeagueState }) {
+export function StandingsView({ state, act, notify }: { state: LeagueState; act: Act; notify: Notify }) {
   const [selectedRoundNumber, setSelectedRoundNumber] = useState<number | null>(null);
+  const [selectedRivalId, setSelectedRivalId] = useState<string | null>(null);
+  const [offerTarget, setOfferTarget] = useState<RivalSquadEntry | null>(null);
+  const [amount, setAmount] = useState("");
+  const [busy, setBusy] = useState(false);
   const members = state.members;
   const average = members.length > 0 ? Math.round(members.reduce((sum, m) => sum + m.totalPoints, 0) / members.length) : 0;
   const topValue = Math.max(0, ...members.map((m) => m.squadValue));
   const bestRound = Math.max(0, ...members.map((m) => m.lastRoundPoints ?? 0));
   const selectedRound = state.roundResults.find((round) => round.number === selectedRoundNumber) ?? state.roundResults[0] ?? null;
   const memberName = (id: string) => members.find((m) => m.id === id);
+  const marketUrl = `/api/league/${state.league.id}/market`;
+  const selectedRival = members.find((member) => member.id === selectedRivalId && member.id !== state.myMember.id) ?? null;
+  const rivalSquad = selectedRival
+    ? state.rivalSquads
+        .filter((player) => player.memberId === selectedRival.id)
+        .sort((a, b) => positionOrder[a.position] - positionOrder[b.position] || b.value - a.value)
+    : [];
+  const rivalLineup = selectedRival ? state.rivalLineups.find((lineup) => lineup.memberId === selectedRival.id) ?? null : null;
+  const rivalById = new Map(rivalSquad.map((player) => [player.id, player]));
+  const rivalCoordinates = rivalLineup ? pitchCoordinates(rivalLineup.formation, "vertical") : [];
+
+  async function runMarket(body: unknown, message?: string) {
+    setBusy(true);
+    const ok = await act(marketUrl, body);
+    setBusy(false);
+    if (ok && message) notify(message);
+    return ok;
+  }
+
+  async function confirmOffer() {
+    if (!offerTarget) return;
+    const value = moneyInput(amount);
+    if (!value) { notify("Indica una cantidad válida en millones.", "error"); return; }
+    if (await runMarket({ action: "makeOffer", playerId: offerTarget.id, amount: value }, "Oferta enviada al mánager.")) {
+      setOfferTarget(null);
+      setAmount("");
+    }
+  }
 
   return (
     <div className="standings-layout">
@@ -32,7 +64,14 @@ export function StandingsView({ state }: { state: LeagueState }) {
           <div className={`standings-row ${member.id === state.myMember.id ? "current" : ""}`} key={member.id}>
             <b>{index + 1}</b>
             <i style={{ background: member.color }}>{member.teamName.slice(0, 2).toUpperCase()}</i>
-            <span><strong>{member.teamName}</strong><small>{member.displayName}{member.id === state.myMember.id ? " · Tú" : ""}{member.role !== "member" ? " · Admin" : ""}</small></span>
+            {member.id === state.myMember.id ? (
+              <span><strong>{member.teamName}</strong><small>{member.displayName} · Tú{member.role !== "member" ? " · Admin" : ""}</small></span>
+            ) : (
+              <button type="button" className="standings-team-button" onClick={() => setSelectedRivalId(member.id)}>
+                <strong>{member.teamName}</strong>
+                <small>{member.displayName}{member.role !== "member" ? " · Admin" : ""} · Ver plantilla</small>
+              </button>
+            )}
             <em className={member.lastRoundPoints !== null && member.lastRoundPoints >= bestRound && bestRound > 0 ? "positive" : ""}>{member.lastRoundPoints === null ? "—" : Math.round(member.lastRoundPoints)}</em>
             <em>{money(member.squadValue)}</em>
             <strong>{Math.round(member.totalPoints)}</strong>
@@ -84,6 +123,85 @@ export function StandingsView({ state }: { state: LeagueState }) {
                   );
                 })}
             </div>
+          </div>
+        </div>
+      )}
+      {selectedRival && (
+        <div className="modal-backdrop" onMouseDown={() => setSelectedRivalId(null)}>
+          <div className="lineup-modal standings-rival-modal" onMouseDown={(event) => event.stopPropagation()}>
+            <button className="modal-close" onClick={() => setSelectedRivalId(null)}><X /></button>
+            <div className="lineup-modal-head">
+              <span className="kicker">{selectedRival.displayName.toUpperCase()}</span>
+              <h2>{selectedRival.teamName}</h2>
+              <p>{Math.round(selectedRival.totalPoints)} pts · Valor {money(selectedRival.squadValue)}</p>
+            </div>
+            <div className="standings-rival-body">
+              <section>
+                <h3><Shirt size={15} /> Alineación</h3>
+                {rivalLineup && rivalLineup.starters.length > 0 ? (
+                  <div className="pitch full-pitch vertical-pitch rival-modal-pitch">
+                    {rivalLineup.starters.map((id, index) => {
+                      const player = rivalById.get(id);
+                      if (!player) return null;
+                      return (
+                        <div key={id} className="pitch-player" style={{ left: `${rivalCoordinates[index]?.left ?? 50}%`, top: `${rivalCoordinates[index]?.top ?? 50}%` }}>
+                          <PlayerAvatar player={player} />
+                          {state.league.settings.captain && id === rivalLineup.captainPlayerId && <Crown className="captain-crown" />}
+                          <strong><TeamBadge player={player} />{nameAndSurname(player.name)}</strong>
+                          <span>{money(player.value)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="empty-mini"><Shirt size={14} /> Este rival aún no tiene once para la jornada actual.</div>
+                )}
+              </section>
+              <section>
+                <h3>Plantilla completa</h3>
+                <div className="rival-squad-list">
+                  {rivalSquad.map((player) => (
+                    <div className="rival-player-row" key={player.id}>
+                      <PlayerAvatar player={player} small />
+                      <PositionTag position={player.position} />
+                      <span><strong><TeamBadge player={player} />{player.name}</strong><small>{player.team}</small></span>
+                      <em>{money(player.value)}</em>
+                      <div className="row-actions">
+                        {state.league.settings.market.clauses && player.clauseValue !== null && (
+                          <button className="ghost-button danger" disabled={busy || player.clauseValue > state.myMember.budget} title={player.clauseValue > state.myMember.budget ? "Saldo insuficiente" : ""} onClick={async () => {
+                            if (window.confirm(`¿Pagar la cláusula de ${player.name} (${money(player.clauseValue!)})? El traspaso es inmediato.`)) {
+                              if (await runMarket({ action: "payClause", playerId: player.id }, "¡Cláusula pagada! El jugador ya es tuyo.")) setSelectedRivalId(null);
+                            }
+                          }}><LockKeyhole size={13} /> {money(player.clauseValue)}</button>
+                        )}
+                        {state.league.settings.market.directTransfers && (
+                          <button className="ghost-button" disabled={busy} onClick={() => { setOfferTarget(player); setAmount(String(player.value / 1e6)); }}>Ofertar</button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {rivalSquad.length === 0 && <div className="empty-mini">No hay jugadores visibles para este rival.</div>}
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
+      {offerTarget && (
+        <div className="modal-backdrop" onMouseDown={() => setOfferTarget(null)}>
+          <div className="bid-modal" onMouseDown={(event) => event.stopPropagation()}>
+            <button className="modal-close" onClick={() => setOfferTarget(null)}><X /></button>
+            <PlayerAvatar player={offerTarget} />
+            <PositionTag position={offerTarget.position} />
+            <h2><TeamBadge player={offerTarget} />{offerTarget.name}</h2>
+            <p>{offerTarget.team} · Valor {money(offerTarget.value)}</p>
+            <label>TU OFERTA</label>
+            <div className="money-input">
+              <input autoFocus inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0,0" />
+              <span>M€</span>
+            </div>
+            <small>Saldo disponible: {money(state.myMember.budget)}</small>
+            <button className="button full" disabled={busy} onClick={confirmOffer}>Enviar oferta <CircleDollarSign size={17} /></button>
           </div>
         </div>
       )}

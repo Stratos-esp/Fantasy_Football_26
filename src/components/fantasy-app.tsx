@@ -222,7 +222,7 @@ export function FantasyApp() {
           {section === "inicio" && <HomeView state={state} onNavigate={goTo} />}
           {section === "plantilla" && <SquadView state={state} act={act} notify={notify} />}
           {section === "mercado" && <MarketView state={state} act={act} notify={notify} />}
-          {section === "clasificacion" && <StandingsView state={state} />}
+          {section === "clasificacion" && <StandingsView state={state} act={act} notify={notify} />}
           {section === "jornada" && <MatchdayView state={state} act={act} notify={notify} />}
           {section === "comunidad" && <CommunityView state={state} notify={notify} />}
           {section === "administracion" && <AdminView state={state} act={act} notify={notify} />}
