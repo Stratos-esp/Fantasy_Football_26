@@ -213,6 +213,13 @@ export type MatchdayDetailMember = {
   points: number;
   formation: string;
   captainPlayerId: string | null;
+  goals: number;
+  yellow: number;
+  red: number;
+  played: number;
+  startersCount: number;
+  topName: string | null;
+  topPoints: number;
   players: MatchdayDetailPlayer[];
 };
 
@@ -220,6 +227,15 @@ export type MatchdayDetail = {
   number: number;
   finished: boolean;
   members: MatchdayDetailMember[];
+};
+
+export type LeagueStats = {
+  topTeamGoals: { teamName: string; jornada: number; goals: number } | null;
+  bestPlayerRound: { playerName: string; teamName: string; jornada: number; points: number } | null;
+  totalYellow: number;
+  totalRed: number;
+  myJornadasWon: number;
+  jornadasPlayed: number;
 };
 
 export type LeagueState = {

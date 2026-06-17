@@ -10,6 +10,14 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- En la Clasificación de la jornada, cada equipo muestra ahora los goles, las
+  tarjetas (amarillas y rojas), cuántos jugadores jugaron (p. ej. 8/11) y su
+  jugador con más puntos de esa jornada.
+- Nuevo cuadro «Estadísticas generales de la liga» en la vista Jornada: máximo
+  de goles de un equipo en una jornada, mejor actuación individual (jugador y
+  jornada), tarjetas totales y cuántas jornadas has ganado.
+- Sincronización de estadísticas detalladas (goles, asistencias, tarjetas y
+  minutos) por jugador y jornada desde LaLiga Fantasy (cron sync-stats).
 - Documentación común para mantener el historial y coordinar contribuciones.
 - Logo oficial de «Stratos League» (recortado y con fondo transparente) en el
   panel de la pantalla de acceso y en la barra lateral de la aplicación.
