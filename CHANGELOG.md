@@ -88,9 +88,19 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   decir 2 € invertidos por cada 1 € que sube la cláusula).
 - Icono de la aplicación: al añadir el acceso a la pantalla de inicio del móvil
   y en la pestaña/buscador del navegador se muestra el logo de Stratos.
+- Foto de perfil: cada usuario puede subir su foto y encuadrarla (zoom y
+  arrastrar) desde Ajustes; aparece en las clasificaciones, la jornada, el chat,
+  la barra lateral y la administración.
+- En «Mi plantilla», cada jugador de la convocatoria muestra su valor de mercado
+  y, debajo, la evolución respecto a la última jornada en verde o rojo.
+- Los puntos totales de cada jugador se ven en un globo sobre su cara, tanto en
+  la convocatoria como en el once del campo.
 
 ### Cambiado
 
+- La convocatoria de «Mi plantilla» se rediseñó para no repetir datos: cara del
+  jugador, escudo y posición, nombre con su estado (titular/suplente/sin
+  convocar) y forma reciente, y a la derecha valor y evolución.
 - El mercado se ve mucho mejor en móvil: las subastas pasan a tarjetas
   horizontales tipo lista (foto, nombre, precio y botón de pujar más claros) en
   lugar del bloque comprimido anterior.

@@ -191,7 +191,10 @@ export function FantasyApp() {
           <button onClick={() => goTo("ajustes")} className={section === "ajustes" ? "active" : ""}><Settings /><span>Ajustes</span></button>
         </nav>
         <div className="sidebar-footer">
-          <div className="user-avatar">{state.user.displayName.slice(0, 2).toUpperCase()}</div>
+          <div className="user-avatar">{state.user.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img className="user-avatar-img" src={state.user.avatarUrl} alt="" />
+          ) : state.user.displayName.slice(0, 2).toUpperCase()}</div>
           <span><strong>{state.user.displayName}</strong><small>{isAdmin ? "Administrador" : "Mánager"}</small></span>
           <button className="icon-button" onClick={logout} title="Cerrar sesión"><LogOut /></button>
         </div>

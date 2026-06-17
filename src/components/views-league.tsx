@@ -5,7 +5,7 @@ import { CircleDollarSign, Crown, Gavel, LockKeyhole, Play, Shield, Shirt, Troph
 import { apiGet, apiPost, money, moneyInput, nameAndSurname, pitchCoordinates, positionOrder, timeAgo } from "@/lib/client";
 import { formations, type LeagueState, type MatchdayDetail, type MatchdayDetailMember, type MatchdayDetailPlayer, type RivalSquadEntry } from "@/lib/types";
 import type { Notify } from "@/components/fantasy-app";
-import { PlayerAvatar, PositionTag, TeamBadge } from "@/components/ui";
+import { PlayerAvatar, PositionTag, TeamBadge, UserAvatar } from "@/components/ui";
 
 type Act = (url: string, body?: unknown, method?: "POST" | "PUT") => Promise<boolean>;
 
@@ -73,7 +73,7 @@ export function StandingsView({ state, act, notify }: { state: LeagueState; act:
         {members.map((member, index) => (
           <div className={`standings-row ${member.id === state.myMember.id ? "current" : ""}`} key={member.id}>
             <b>{index + 1}</b>
-            <i style={{ background: member.color }}>{member.teamName.slice(0, 2).toUpperCase()}</i>
+            <UserAvatar name={member.teamName} color={member.color} avatarUrl={member.avatarUrl} />
             {member.id === state.myMember.id ? (
               <span><strong>{member.teamName}</strong><small>{member.displayName} · Tú{member.role !== "member" ? " · Admin" : ""}</small></span>
             ) : (
@@ -141,7 +141,7 @@ export function StandingsView({ state, act, notify }: { state: LeagueState; act:
                   return (
                     <div key={row.memberId}>
                       <b>{index + 1}</b>
-                      <i style={{ background: member.color }}>{member.teamName.slice(0, 2).toUpperCase()}</i>
+                      <UserAvatar name={member.teamName} color={member.color} avatarUrl={member.avatarUrl} />
                       <span><strong>{member.teamName}</strong><small>{member.displayName}</small></span>
                       <em>{Math.round(row.points)} pts</em>
                     </div>
@@ -366,7 +366,7 @@ export function MatchdayView({ state, act, notify }: { state: LeagueState; act: 
                   <article key={member.memberId} className={member.memberId === myId ? "mine clickable-row" : "clickable-row"} onClick={() => setOpenManager(member.memberId)}>
                     <time>{index + 1}º</time>
                     <div>
-                      <i style={{ background: member.color }}>{member.teamName.slice(0, 2).toUpperCase()}</i>
+                      <UserAvatar name={member.teamName} color={member.color} avatarUrl={member.avatarUrl} />
                       <strong>{member.teamName}</strong>
                       <span>{member.displayName}{member.memberId === myId ? " · Tú" : ""} · ver alineación</span>
                     </div>
@@ -502,6 +502,7 @@ export function CommunityView({ state, notify }: { state: LeagueState; notify: N
   }
 
   const colorFor = (userId: string) => state.members.find((m) => m.userId === userId)?.color ?? "#65d5ff";
+  const avatarFor = (userId: string) => state.members.find((m) => m.userId === userId)?.avatarUrl ?? null;
 
   return (
     <div className="community-layout">
@@ -510,7 +511,7 @@ export function CommunityView({ state, notify }: { state: LeagueState; notify: N
         <div className="messages" ref={scrollRef}>
           {messages.map((message) => (
             <div key={message.id} className={message.userId === state.user.id ? "own" : ""}>
-              <i style={{ background: colorFor(message.userId) }}>{message.displayName.slice(0, 2).toUpperCase()}</i>
+              <UserAvatar name={message.displayName} color={colorFor(message.userId)} avatarUrl={avatarFor(message.userId)} />
               <span><strong>{message.displayName}<time>{timeAgo(message.createdAt)}</time></strong><p>{message.body}</p></span>
             </div>
           ))}

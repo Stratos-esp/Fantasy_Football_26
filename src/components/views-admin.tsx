@@ -5,7 +5,8 @@ import { AlertTriangle, Check, Copy, FastForward, Gavel, LockKeyhole, Minus, Pla
 import { timeAgo } from "@/lib/client";
 import type { LeagueRules, LeagueSettings, LeagueState, MarketSettings } from "@/lib/types";
 import type { Notify } from "@/components/fantasy-app";
-import { SettingRow, Toggle } from "@/components/ui";
+import { SettingRow, Toggle, UserAvatar } from "@/components/ui";
+import { AvatarEditor } from "@/components/avatar-editor";
 
 type Act = (url: string, body?: unknown, method?: "POST" | "PUT") => Promise<boolean>;
 
@@ -101,7 +102,7 @@ export function AdminView({ state, act, notify }: { state: LeagueState; act: Act
         </div>
         {state.members.map((member) => (
           <div className="member-row" key={member.id}>
-            <i style={{ background: member.color }}>{member.displayName.slice(0, 2).toUpperCase()}</i>
+            <UserAvatar name={member.teamName} color={member.color} avatarUrl={member.avatarUrl} />
             <span><strong>{member.displayName}</strong><small>{member.teamName} · {Math.round(member.totalPoints)} pts</small></span>
             <em>{member.role === "owner" ? "Propietario" : member.role === "admin" ? "Administrador" : "Miembro"}</em>
           </div>
@@ -130,7 +131,15 @@ export function SettingsView({ state, act, notify, theme, setTheme }: { state: L
   const [resetting, setResetting] = useState(false);
   const [teamName, setTeamName] = useState(state.myMember.teamName);
   const [savingTeam, setSavingTeam] = useState(false);
+  const [savingAvatar, setSavingAvatar] = useState(false);
   const isAdmin = state.league.isAdmin;
+
+  async function saveAvatar(dataUrl: string | null) {
+    setSavingAvatar(true);
+    const ok = await act("/api/me", { avatarUrl: dataUrl }, "PUT");
+    setSavingAvatar(false);
+    if (ok) notify(dataUrl ? "Foto de perfil actualizada." : "Foto de perfil eliminada.");
+  }
 
   async function reset() {
     if (resetText.trim().toUpperCase() !== "REINICIAR") {
@@ -184,6 +193,12 @@ export function SettingsView({ state, act, notify, theme, setTheme }: { state: L
             </button>
           </div>
           <small className="settings-help">Cada miembro puede cambiar su propio nombre de equipo. Debe ser único dentro de la liga.</small>
+        </div>
+
+        <div className="settings-section">
+          <span className="kicker">FOTO DE PERFIL</span>
+          <h2>Tu foto en las clasificaciones</h2>
+          <AvatarEditor current={state.user.avatarUrl} busy={savingAvatar} onSave={saveAvatar} />
         </div>
 
         <div className="settings-section">

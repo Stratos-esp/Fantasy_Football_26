@@ -113,6 +113,7 @@ export type ApiPlayer = {
   teamLogo: string | null;
   photo: string | null;
   value: number;
+  valueDelta: number;
   seasonPoints: number;
   lastPoints: number | null;
   last5?: number[];
@@ -130,6 +131,7 @@ export type MemberSummary = {
   teamName: string;
   role: "owner" | "admin" | "member";
   color: string;
+  avatarUrl: string | null;
   totalPoints: number;
   squadValue: number;
   squadSize: number;
@@ -201,6 +203,7 @@ export type MatchdayDetailMember = {
   teamName: string;
   displayName: string;
   color: string;
+  avatarUrl: string | null;
   points: number;
   formation: string;
   captainPlayerId: string | null;
@@ -214,7 +217,7 @@ export type MatchdayDetail = {
 };
 
 export type LeagueState = {
-  user: { id: string; username: string; displayName: string };
+  user: { id: string; username: string; displayName: string; avatarUrl: string | null };
   league: {
     id: string;
     name: string;

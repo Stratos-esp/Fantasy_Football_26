@@ -4,7 +4,7 @@ import { Activity, Check, Crown, Gavel, Shield, Trophy, TrendingUp, Users } from
 import { money, nameAndSurname, pitchCoordinates, timeAgo } from "@/lib/client";
 import { formations, type LeagueState } from "@/lib/types";
 import type { Section } from "@/components/fantasy-app";
-import { PlayerAvatar, TeamBadge, Trend } from "@/components/ui";
+import { PlayerAvatar, TeamBadge, Trend, UserAvatar } from "@/components/ui";
 
 export function HomeView({ state, onNavigate }: { state: LeagueState; onNavigate: (section: Section) => void }) {
   const rank = state.members.findIndex((m) => m.id === state.myMember.id) + 1;
@@ -74,7 +74,7 @@ export function HomeView({ state, onNavigate }: { state: LeagueState; onNavigate
           {state.members.map((member, index) => (
             <div key={member.id} className={member.id === state.myMember.id ? "you" : ""}>
               <b>{index + 1}</b>
-              <i style={{ background: member.color }}>{member.teamName.slice(0, 2).toUpperCase()}</i>
+              <UserAvatar name={member.teamName} color={member.color} avatarUrl={member.avatarUrl} />
               <span><strong>{member.teamName}</strong><small>{member.displayName}</small></span>
               <em>{Math.round(member.totalPoints)}<small> pts</small></em>
             </div>

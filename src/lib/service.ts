@@ -925,6 +925,7 @@ function toApiPlayer(player: PlayerRow, stats: Map<string, { season: number; las
     teamLogo: player.team?.badge_url ?? (player.team?.external_id ? `https://media.api-sports.io/football/teams/${player.team.external_id}.png` : null),
     photo: player.photo_url ?? null,
     value: Number(player.current_value),
+    valueDelta: Number(player.current_value) - Number((player.metadata as { prevValue?: number } | null)?.prevValue ?? player.current_value),
     seasonPoints: playerStats?.season ?? 0,
     lastPoints: playerStats?.last ?? null,
   };
@@ -944,14 +945,14 @@ export async function getLeagueState(db: Db, league: LeagueRow, member: MemberRo
   }
   const player = (id: string): ApiPlayer => {
     const row = playersById.get(id);
-    return row ? toApiPlayer(row, stats) : { id, name: "Jugador", position: "MED", team: "—", teamShort: "?", teamColor: "#3b6c4f", teamLogo: null, photo: null, value: 0, seasonPoints: 0, lastPoints: null };
+    return row ? toApiPlayer(row, stats) : { id, name: "Jugador", position: "MED", team: "—", teamShort: "?", teamColor: "#3b6c4f", teamLogo: null, photo: null, value: 0, valueDelta: 0, seasonPoints: 0, lastPoints: null };
   };
 
   const { data: memberRows } = await db
     .from("fantasy_league_members")
-    .select("id, user_id, role, team_name, budget, total_points, color, user:fantasy_users(display_name)")
+    .select("id, user_id, role, team_name, budget, total_points, color, user:fantasy_users(display_name, avatar_url)")
     .eq("league_id", league.id);
-  const membersData = (memberRows ?? []) as unknown as (MemberRow & { user: { display_name: string } | null })[];
+  const membersData = (memberRows ?? []) as unknown as (MemberRow & { user: { display_name: string; avatar_url: string | null } | null })[];
   const memberIds = membersData.map((m) => m.id);
 
   const { data: squadRows } = await db
@@ -1229,7 +1230,7 @@ export async function getLeagueState(db: Db, league: LeagueRow, member: MemberRo
   }
 
   return {
-    user,
+    user: { ...user, avatarUrl: membersData.find((m) => m.id === member.id)?.user?.avatar_url ?? null },
     league: {
       id: league.id,
       name: league.name,
@@ -1257,6 +1258,7 @@ export async function getLeagueState(db: Db, league: LeagueRow, member: MemberRo
         teamName: m.team_name,
         role: m.role,
         color: m.color ?? "#65d5ff",
+        avatarUrl: m.user?.avatar_url ?? null,
         totalPoints: Number(m.total_points),
         squadValue: squadValueByMember.get(m.id) ?? 0,
         squadSize: squadCountByMember.get(m.id) ?? 0,
@@ -1324,9 +1326,9 @@ export async function getMatchdayDetail(db: Db, league: LeagueRow, number: numbe
   const emptyStats = new Map<string, { season: number; last: number | null }>();
   const { data: memberRows } = await db
     .from("fantasy_league_members")
-    .select("id, team_name, color, user:fantasy_users(display_name)")
+    .select("id, team_name, color, user:fantasy_users(display_name, avatar_url)")
     .eq("league_id", league.id);
-  const membersData = (memberRows ?? []) as unknown as { id: string; team_name: string; color: string | null; user: { display_name: string } | null }[];
+  const membersData = (memberRows ?? []) as unknown as { id: string; team_name: string; color: string | null; user: { display_name: string; avatar_url: string | null } | null }[];
   const { data: lineups } = await db.from("fantasy_lineups").select("id, league_member_id, formation, captain_player_id, total_points").eq("matchday_id", md.id);
   const lineupIds = (lineups ?? []).map((l) => l.id);
   const { data: lps } = lineupIds.length > 0
@@ -1343,6 +1345,7 @@ export async function getMatchdayDetail(db: Db, league: LeagueRow, number: numbe
       teamName: m.team_name,
       displayName: m.user?.display_name ?? "—",
       color: m.color ?? "#65d5ff",
+      avatarUrl: m.user?.avatar_url ?? null,
       points: Number(lineup?.total_points ?? 0),
       formation: (lineup?.formation as string) ?? "4-4-2",
       captainPlayerId: (lineup?.captain_player_id as string | null) ?? null,

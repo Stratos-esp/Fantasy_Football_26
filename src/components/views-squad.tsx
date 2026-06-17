@@ -34,6 +34,15 @@ function autofill(squad: SquadEntry[], formation: string) {
   return { starters, bench };
 }
 
+// Evolución del valor respecto a la última jornada, en formato compacto.
+function formatDelta(value: number): string {
+  if (!value) return "";
+  const sign = value > 0 ? "+" : "−";
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) return `${sign}${(abs / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 1 })} M€`;
+  return `${sign}${Math.round(abs / 1000)} k€`;
+}
+
 // Posición que ocupa cada hueco del campo, en el mismo orden que pitchCoordinates.
 function slotPositionList(formation: string): string[] {
   const shape = formations[formation] ?? formations["4-4-2"];
@@ -203,7 +212,7 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
               <button key={index} className={`pitch-player ${player ? "" : "empty"}`} style={{ left: `${coordinate?.left ?? 50}%`, top: `${coordinate?.top ?? 50}%` }} onClick={() => setSelectedSlot(index)}>
                 {player ? (
                   <>
-                    <PlayerAvatar player={player} />
+                    <PlayerAvatar player={player} points={player.seasonPoints} />
                     {settings.captain && id === captain && <Crown className="captain-crown" />}
                     <strong><TeamBadge player={player} />{nameAndSurname(player.name)}</strong>
                     <span>{money(player.value)}</span>
@@ -256,14 +265,19 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
           const roleLabel = isStarter ? "Titular" : isBench ? "Suplente" : "Sin convocar";
           return (
             <button className={`squad-row clickable ${role === "fuera" ? "bench" : ""}`} key={player.id} onClick={() => setManageId(player.id)}>
-              <PlayerAvatar player={player} small />
-              <PositionTag position={player.position} />
-              <span>
-                <strong><TeamBadge player={player} />{player.name}{settings.captain && player.id === captain && <Crown />}</strong>
-                <small>{player.position} · {player.team}</small>
-                <span className="convocatoria-meta"><span className={`role-pill ${role}`}>{roleLabel}</span><FormStrip points={player.last5} /></span>
+              <PlayerAvatar player={player} small points={player.seasonPoints} />
+              <span className="sq-club">
+                <TeamBadge player={player} />
+                <PositionTag position={player.position} />
               </span>
-              <div><b>{Math.round(player.seasonPoints)}</b><small>pts</small></div>
+              <span className="sq-main">
+                <strong>{player.name}{settings.captain && player.id === captain && <Crown />}<span className={`role-pill ${role}`}>{roleLabel}</span></strong>
+                <FormStrip points={player.last5} />
+              </span>
+              <span className="sq-value">
+                <b>{money(player.value)}</b>
+                {player.valueDelta !== 0 && <small className={player.valueDelta > 0 ? "up" : "down"}>{formatDelta(player.valueDelta)}</small>}
+              </span>
             </button>
           );
         })}

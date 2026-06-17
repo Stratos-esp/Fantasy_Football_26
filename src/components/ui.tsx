@@ -4,8 +4,8 @@ import Image from "next/image";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import type { ApiPlayer } from "@/lib/types";
 
-export function PlayerAvatar({ player, small = false }: { player: Pick<ApiPlayer, "name" | "team" | "teamColor" | "teamLogo"> & { photo?: string | null }; small?: boolean }) {
-  return (
+export function PlayerAvatar({ player, small = false, points }: { player: Pick<ApiPlayer, "name" | "team" | "teamColor" | "teamLogo"> & { photo?: string | null }; small?: boolean; points?: number }) {
+  const avatar = (
     <span
       className={`player-avatar ${small ? "small" : ""} ${player.photo ? "has-photo" : ""}`}
       style={{ background: player.teamColor, color: contrast(player.teamColor) }}
@@ -26,6 +26,23 @@ export function PlayerAvatar({ player, small = false }: { player: Pick<ApiPlayer
       )}
     </span>
   );
+  if (points === undefined) return avatar;
+  // El globo de puntos va fuera del círculo (que recorta), por eso envolvemos.
+  return <span className="avatar-stack">{avatar}<em className="avatar-points">{Math.round(points)}</em></span>;
+}
+
+// Avatar de un mánager: su foto de perfil o sus iniciales sobre su color.
+// Se renderiza como <i> para heredar el tamaño de cada lista de clasificación.
+export function UserAvatar({ name, color, avatarUrl }: { name: string; color: string; avatarUrl?: string | null }) {
+  if (avatarUrl) {
+    return (
+      <i className="user-badge" style={{ background: "var(--surface-2)" }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="user-avatar-img" src={avatarUrl} alt="" />
+      </i>
+    );
+  }
+  return <i className="user-badge" style={{ background: color }}>{name.slice(0, 2).toUpperCase()}</i>;
 }
 
 export function TeamBadge({ player }: { player: Pick<ApiPlayer, "team" | "teamLogo"> }) {
