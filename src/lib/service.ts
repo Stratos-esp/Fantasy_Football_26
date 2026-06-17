@@ -988,7 +988,7 @@ function toApiPlayer(player: PlayerRow, stats: Map<string, { season: number; las
     photo: player.photo_url ?? null,
     value: Number(player.current_value),
     valueDelta: Number(player.current_value) - Number((player.metadata as { prevValue?: number } | null)?.prevValue ?? player.current_value),
-    seasonPoints: Number((player.metadata as { seasonPoints?: number } | null)?.seasonPoints ?? playerStats?.season ?? 0),
+    seasonPoints: playerStats?.season ?? 0,
     lastPoints: playerStats?.last ?? null,
     playerStatus,
   };
@@ -1269,41 +1269,36 @@ export async function getLeagueState(db: Db, league: LeagueRow, member: MemberRo
   const mySquad = squads.filter((row) => row.league_member_id === member.id);
   const rivalSquads = squads.filter((row) => row.league_member_id !== member.id);
 
-  // Forma: puntos de las últimas 5 jornadas reales de cada jugador de mi plantilla.
-  // null = no jugó (played=false o sin datos esa jornada)
+  // Forma: puntos de las últimas jornadas DISPUTADAS de esta liga (no datos reales
+  // globales de LaLiga). Solo aparecen tantas casillas como jornadas se hayan simulado.
+  // null = no jugó esa jornada (sin minutos).
   const last5ByPlayer = new Map<string, (number | null)[]>();
   const mySquadIds = mySquad.map((row) => row.player_id as string);
   if (mySquadIds.length > 0) {
-    const { data: wpMax } = await db.from("fantasy_player_week_points").select("week").order("week", { ascending: false }).limit(1).maybeSingle();
-    const maxWeek = Number(wpMax?.week ?? 0);
-    if (maxWeek > 0) {
-      const fromWeek = Math.max(1, maxWeek - 4);
-      const { data: wpRows } = await db
-        .from("fantasy_player_week_points")
-        .select("player_id, week, points, played")
-        .gte("week", fromWeek)
-        .lte("week", maxWeek)
-        .in("player_id", mySquadIds);
-      const grouped = new Map<string, Map<number, { points: number; played: boolean }>>();
-      for (const r of wpRows ?? []) {
-        const byWeek = grouped.get(r.player_id as string) ?? new Map<number, { points: number; played: boolean }>();
-        byWeek.set(Number(r.week), { points: Number(r.points), played: Boolean(r.played) });
-        grouped.set(r.player_id as string, byWeek);
-      }
-      for (const [pid, byWeek] of grouped) {
-        const padded: (number | null)[] = [];
-        for (let w = fromWeek; w <= maxWeek; w++) {
-          const entry = byWeek.get(w);
-          padded.push(entry && entry.played ? entry.points : null);
-        }
-        last5ByPlayer.set(pid, padded);
-      }
-      // Jugadores de plantilla sin ningún dato en las últimas 5 jornadas → relleno de nulls
-      for (const pid of mySquadIds) {
-        if (!last5ByPlayer.has(pid)) {
-          last5ByPlayer.set(pid, Array.from({ length: maxWeek - fromWeek + 1 }, () => null));
-        }
-      }
+    const { data: scoreRows } = await db
+      .from("fantasy_player_scores")
+      .select("player_id, points, breakdown, matchday:fantasy_matchdays!inner(number, status)")
+      .eq("league_id", league.id)
+      .in("player_id", mySquadIds);
+    type ScoreRow = { player_id: string; points: number; breakdown: { minutes?: number } | null; matchday: { number: number; status: string } | null };
+    const rows = ((scoreRows ?? []) as unknown as ScoreRow[]).filter((r) => r.matchday?.status === "finished");
+    // Las últimas 5 jornadas disputadas (por número), en orden ascendente.
+    const playedNumbers = [...new Set(rows.map((r) => r.matchday!.number))].sort((a, b) => a - b).slice(-5);
+    const fromNumber = playedNumbers[0] ?? Infinity;
+    const grouped = new Map<string, Map<number, { points: number; minutes: number }>>();
+    for (const r of rows) {
+      const n = r.matchday!.number;
+      if (n < fromNumber) continue;
+      const byMd = grouped.get(r.player_id) ?? new Map<number, { points: number; minutes: number }>();
+      byMd.set(n, { points: Number(r.points), minutes: Number(r.breakdown?.minutes ?? 0) });
+      grouped.set(r.player_id, byMd);
+    }
+    for (const pid of mySquadIds) {
+      const byMd = grouped.get(pid);
+      last5ByPlayer.set(pid, playedNumbers.map((n) => {
+        const entry = byMd?.get(n);
+        return entry && entry.minutes > 0 ? entry.points : null;
+      }));
     }
   }
 
