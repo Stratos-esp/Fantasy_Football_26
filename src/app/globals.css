@@ -668,16 +668,18 @@ button.points-bar{border:0;background:transparent;cursor:pointer;font:inherit}
 .full-pitch .avatar-points,.vertical-pitch .avatar-points{min-width:clamp(18px,4.6cqi,26px);height:clamp(18px,4.6cqi,26px);font-size:clamp(9px,2.2cqi,12px);border-color:rgba(255,255,255,.85)}
 
 /* Convocatoria rediseñada: cara · escudo/posición · nombre/forma · valor/evolución */
-.squad-row{grid-template-columns:46px 38px 1fr auto;gap:11px;align-items:center}
+.squad-row{grid-template-columns:62px 40px 1fr auto;gap:13px;align-items:center;padding:8px 16px}
+.squad-row .player-avatar.small{width:56px;height:56px;font-size:13px}
+.squad-row .avatar-points{min-width:24px;height:24px;padding:0 5px;font-size:12px;right:-3px;bottom:-3px}
 .sq-club{display:flex;flex-direction:column;align-items:center;gap:5px}
-.sq-club .player-name-badge{width:24px;height:24px;min-width:24px;margin:0;vertical-align:0}
-.sq-club .position-tag{min-width:36px;min-height:22px}
+.sq-club .player-name-badge{width:26px;height:26px;min-width:26px;margin:0;vertical-align:0}
+.sq-club .position-tag{min-width:38px;min-height:23px}
 .sq-main{display:flex;flex-direction:column;gap:6px;min-width:0}
-.sq-main strong{display:flex;align-items:center;gap:7px;font-size:13px;flex-wrap:wrap}
+.sq-main strong{display:flex;align-items:center;gap:7px;font-size:14px;flex-wrap:wrap}
 .sq-main strong svg{width:12px;color:#d8a600;fill:#d8a600}
 .sq-value{display:flex;flex-direction:column;align-items:flex-end;gap:2px;white-space:nowrap}
-.sq-value b{font:700 13px var(--font-display)}
-.sq-value small{font-size:10px;font-weight:800}
+.sq-value b{font:700 14px var(--font-display)}
+.sq-value small{font-size:11px;font-weight:800}
 .sq-value small.up{color:var(--positive)}
 .sq-value small.down{color:var(--danger)}
 
@@ -694,7 +696,8 @@ button.points-bar{border:0;background:transparent;cursor:pointer;font:inherit}
 .avatar-upload{cursor:pointer}
 
 @media (max-width: 760px){
-  .squad-row{grid-template-columns:44px 34px 1fr auto;gap:9px;padding:11px 12px}
+  .squad-row{grid-template-columns:56px 36px 1fr auto;gap:11px;padding:7px 12px}
+  .squad-row .player-avatar.small{width:52px;height:52px}
   .avatar-crop{width:200px;height:200px}
   .avatar-editor input[type=range]{width:200px}
 }
