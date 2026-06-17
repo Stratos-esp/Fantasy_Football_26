@@ -51,12 +51,13 @@ export function HomeView({ state, onNavigate }: { state: LeagueState; onNavigate
             if (!player) {
               return <button key={`empty-${index}`} className="pitch-player empty" style={style} onClick={() => onNavigate("plantilla")}><span className="empty-slot" /></button>;
             }
+            const lastJornada = player.last5?.length ? player.last5[player.last5.length - 1] : player.lastPoints;
             return (
               <button key={player.id} className="pitch-player" style={style} onClick={() => onNavigate("plantilla")}>
-                <PlayerAvatar player={player} small />
+                <PlayerAvatar player={player} small points={player.seasonPoints} />
                 {state.league.settings.captain && player.id === state.lineup.captainPlayerId && <Crown className="captain-crown" />}
                 <strong><TeamBadge player={player} />{nameAndSurname(player.name)}</strong>
-                <span>{player.lastPoints ?? "—"}</span>
+                <span>{lastJornada ?? "—"}</span>
               </button>
             );
           })}

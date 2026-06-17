@@ -988,7 +988,7 @@ function toApiPlayer(player: PlayerRow, stats: Map<string, { season: number; las
     photo: player.photo_url ?? null,
     value: Number(player.current_value),
     valueDelta: Number(player.current_value) - Number((player.metadata as { prevValue?: number } | null)?.prevValue ?? player.current_value),
-    seasonPoints: playerStats?.season ?? 0,
+    seasonPoints: Number((player.metadata as { seasonPoints?: number } | null)?.seasonPoints ?? playerStats?.season ?? 0),
     lastPoints: playerStats?.last ?? null,
     playerStatus,
   };
