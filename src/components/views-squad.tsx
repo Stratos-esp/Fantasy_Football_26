@@ -262,7 +262,7 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
           const isStarter = starterIds.includes(player.id);
           const isBench = benchIds.includes(player.id);
           const role = isStarter ? "titular" : isBench ? "suplente" : "fuera";
-          const roleLabel = isStarter ? "Titular" : isBench ? "Suplente" : "Sin convocar";
+          const roleLabel = isStarter ? "Titular" : isBench ? "Suplente" : null;
           return (
             <button className={`squad-row clickable ${role === "fuera" ? "bench" : ""}`} key={player.id} onClick={() => setManageId(player.id)}>
               <PlayerAvatar player={player} small points={player.seasonPoints} />
@@ -271,7 +271,7 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
                 <PositionTag position={player.position} />
               </span>
               <span className="sq-main">
-                <strong>{player.name}{settings.captain && player.id === captain && <Crown />}<span className={`role-pill ${role}`}>{roleLabel}</span></strong>
+                <strong>{player.name}{settings.captain && player.id === captain && <Crown />}{roleLabel && <span className={`role-pill ${role}`}>{roleLabel}</span>}</strong>
                 <FormStrip points={player.last5} />
               </span>
               <span className="sq-value">
@@ -358,7 +358,6 @@ export function SquadView({ state, act, notify }: { state: LeagueState; act: Act
                 <div className="manage-actions">
                   <button className="button full" disabled={isStarter} onClick={() => makeStarter(manageId)}><Shirt size={15} /> Poner de titular</button>
                   {settings.bench && <button className="ghost-button" disabled={isBench} onClick={() => moveToBench(manageId)}><ArrowDown size={14} /> Mandar al banquillo</button>}
-                  <button className="ghost-button" disabled={!isStarter && !isBench} onClick={() => unconvene(manageId)}>Quitar de la convocatoria</button>
                   {settings.captain && isStarter && manageId !== captain && <button className="ghost-button" onClick={() => { setCaptain(manageId); setDirty(true); setManageId(null); }}><Crown size={14} /> Hacer capitán</button>}
                   <button className="ghost-button" onClick={() => { setDetailId(manageId); setManageId(null); }}>Ver ficha y cláusula</button>
                 </div>

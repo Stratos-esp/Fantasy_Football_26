@@ -289,10 +289,30 @@ export function NormasView({ state, act, notify }: { state: LeagueState; act: Ac
 
   async function propose() {
     if (!changes) { notify("No has cambiado ningún ajuste.", "error"); return; }
+    const cur = state.league.settings;
+    const fmt = (v: number | boolean) => String(typeof v === "boolean" ? (v ? "sí" : "no") : v);
+    const items: Array<{ summary: string; settings: LeagueSettings }> = [];
+
+    (Object.keys(RULE_LABELS) as (keyof LeagueRules)[]).forEach((key) => {
+      if (cur.rules[key] !== settings.rules[key])
+        items.push({ summary: `${RULE_LABELS[key]}: ${fmt(cur.rules[key])} → ${fmt(settings.rules[key])}`, settings: { ...cur, rules: { ...cur.rules, [key]: settings.rules[key] } } });
+    });
+    if (cur.captain !== settings.captain) items.push({ summary: `Capitán: ${onoff(cur.captain)} → ${onoff(settings.captain)}`, settings: { ...cur, captain: settings.captain } });
+    if (cur.captainMultiplier !== settings.captainMultiplier) items.push({ summary: `Multiplicador capitán: x${cur.captainMultiplier} → x${settings.captainMultiplier}`, settings: { ...cur, captainMultiplier: settings.captainMultiplier } });
+    if (cur.bench !== settings.bench) items.push({ summary: `Banquillo: ${onoff(cur.bench)} → ${onoff(settings.bench)}`, settings: { ...cur, bench: settings.bench } });
+    if (cur.benchSlots !== settings.benchSlots) items.push({ summary: `Plazas banquillo: ${cur.benchSlots} → ${settings.benchSlots}`, settings: { ...cur, benchSlots: settings.benchSlots } });
+    if (cur.marketSize !== settings.marketSize) items.push({ summary: `Tamaño mercado: ${cur.marketSize} → ${settings.marketSize}`, settings: { ...cur, marketSize: settings.marketSize } });
+    (Object.keys(MARKET_LABELS) as (keyof MarketSettings)[]).forEach((key) => {
+      if (cur.market[key] !== settings.market[key])
+        items.push({ summary: `${MARKET_LABELS[key]}: ${onoff(cur.market[key])} → ${onoff(settings.market[key])}`, settings: { ...cur, market: { ...cur.market, [key]: settings.market[key] } } });
+    });
+
     setBusy(true);
-    const ok = await act(proposalsUrl, { action: "create", summary: changes, settings });
+    for (const item of items) {
+      if (!(await act(proposalsUrl, { action: "create", summary: item.summary, settings: item.settings }))) break;
+    }
     setBusy(false);
-    if (ok) notify("Propuesta enviada a votación.");
+    notify(`${items.length} propuesta${items.length !== 1 ? "s" : ""} enviada${items.length !== 1 ? "s" : ""} a votación.`);
   }
 
   async function vote(proposalId: string, approve: boolean) {

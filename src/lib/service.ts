@@ -901,11 +901,64 @@ export async function resetLeague(db: Db, league: LeagueRow, actorUserId: string
 
   for (const member of members ?? []) {
     await db.from("fantasy_league_members").update({ budget: Number(league.starting_budget), total_points: 0 }).eq("id", member.id);
-    await assignRandomSquad(db, refreshed, member.id);
   }
+  await assignBalancedSquads(db, refreshed, (members ?? []).map((m) => m.id));
   await refreshMarket(db, refreshed);
   await audit(db, league.id, actorUserId, "league_reset", "La liga se reinició: nuevas plantillas aleatorias para todos");
   return { members: memberIds.length };
+}
+
+// Distribuye jugadores entre todos los equipos simultáneamente con snake draft
+// sobre los jugadores ordenados por valor, garantizando valor total similar.
+async function assignBalancedSquads(db: Db, league: LeagueRow, memberIds: string[]) {
+  const n = memberIds.length;
+  if (n === 0) return;
+  const settings = leagueSettings(league);
+  const players = await fetchPlayers(db, league.season);
+  if (players.length === 0) fail("No hay jugadores cargados.", 503);
+
+  const byPosition: Record<Position, PlayerRow[]> = { POR: [], DEF: [], MED: [], DEL: [] };
+  for (const p of players) byPosition[p.position]?.push(p);
+  for (const pos of Object.keys(SQUAD_SHAPE) as Position[]) {
+    byPosition[pos].sort((a, b) => Number(b.current_value) - Number(a.current_value));
+    if (byPosition[pos].length < SQUAD_SHAPE[pos] * n) fail(`No hay suficientes jugadores de posición ${pos}.`);
+  }
+
+  const teamSquads: PlayerRow[][] = Array.from({ length: n }, () => []);
+  // El orden inicial de los equipos se aleatoriza para que no siempre el mismo reciba los mejores
+  const teamOrder = shuffle(Array.from({ length: n }, (_, i) => i));
+
+  for (const pos of Object.keys(SQUAD_SHAPE) as Position[]) {
+    const slots = SQUAD_SHAPE[pos as Position];
+    const pool = byPosition[pos as Position].slice(0, slots * n);
+    for (let slot = 0; slot < slots; slot++) {
+      const order = slot % 2 === 0 ? [...teamOrder] : [...teamOrder].reverse();
+      for (const teamIdx of order) {
+        const player = pool.shift();
+        if (player) teamSquads[teamIdx].push(player);
+      }
+    }
+  }
+
+  for (let i = 0; i < n; i++) {
+    const squad = teamSquads[i];
+    const squadRows = squad.map((player) => ({
+      league_member_id: memberIds[i],
+      player_id: player.id,
+      purchase_price: Number(player.current_value),
+      clause_value: roundMoney(Number(player.current_value) * settings.clauseMultiplier),
+    }));
+    await db.from("fantasy_squads").insert(squadRows);
+    const spent = squad.reduce((sum, p) => sum + Number(p.current_value), 0);
+    await db.from("fantasy_league_members").update({ budget: Math.max(0, Number(league.starting_budget) - spent) }).eq("id", memberIds[i]);
+  }
+
+  const matchday = await activeMatchday(db, league);
+  if (matchday) {
+    for (let i = 0; i < n; i++) {
+      await createDefaultLineup(db, league, memberIds[i], teamSquads[i], matchday.id);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
