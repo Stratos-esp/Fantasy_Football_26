@@ -230,11 +230,10 @@ export type MatchdayDetail = {
 };
 
 export type LeagueStats = {
-  topTeamGoals: { teamName: string; jornada: number; goals: number } | null;
-  bestPlayerRound: { playerName: string; teamName: string; jornada: number; points: number } | null;
-  totalYellow: number;
-  totalRed: number;
-  myJornadasWon: number;
+  topTeamGoals: { teamName: string; jornada: number; goals: number }[];
+  bestPlayerRound: { playerName: string; teamName: string; jornada: number; points: number }[];
+  topCards: { teamName: string; yellow: number; red: number }[];
+  topJornadasWon: { teamName: string; won: number }[];
   jornadasPlayed: number;
 };
 

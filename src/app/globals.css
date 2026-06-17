@@ -633,19 +633,33 @@ button.points-bar{border:0;background:transparent;cursor:pointer;font:inherit}
 .rule-money input:disabled{opacity:.6}
 .rule-money span{padding:0 11px;color:var(--muted);font-weight:800}
 
-/* --- Jornada: 2ª línea de estadísticas por equipo y récords de liga --- */
-.fixture-list .md-row-stats{grid-column:1/-1;margin-top:9px;padding-top:9px;border-top:1px dashed var(--line);display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;text-align:left;font-size:9px;color:var(--muted)}
-.fixture-list .md-row-stats b{color:var(--ink);font-size:10px}
-.fixture-list .md-row-top{margin-left:auto}
+/* --- Jornada: fila de equipo en una sola línea + récords top 3 --- */
+.fixture-list article.md-team-row{display:flex;align-items:center;gap:11px;padding:11px 0}
+.fixture-list article.md-team-row time{font-size:8px;color:var(--muted);min-width:16px}
+.fixture-list article.md-team-row .md-team-name{flex:1;min-width:0;display:flex;flex-direction:column;text-align:left}
+.fixture-list article.md-team-row .md-team-name strong{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fixture-list article.md-team-row .md-team-name small{font-size:8px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fixture-list article.md-team-row .md-stat{display:flex;flex-direction:column;align-items:center;min-width:28px;gap:1px}
+.fixture-list article.md-team-row .md-stat b{font-size:12px;color:var(--ink);font-weight:800}
+.fixture-list article.md-team-row .md-stat small{font-size:8px;color:var(--muted)}
+.fixture-list article.md-team-row .md-stat-pts b{color:var(--positive)}
 .matchday-records{padding:16px 18px;border-top:1px solid var(--line)}
 .matchday-records>.kicker{display:block;margin-bottom:12px}
 .records-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.records-grid>div{background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:12px 13px;display:flex;flex-direction:column;gap:3px;min-width:0}
-.records-grid small{font-size:8px;letter-spacing:.04em;color:var(--muted);font-weight:800}
-.records-grid strong{font-size:18px;font-family:var(--font-display),sans-serif}
-.records-grid strong small{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:0}
-.records-grid>div>span{font-size:9px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-@media (max-width:760px){.fixture-list .md-row-top{margin-left:0}}
+.record-card{background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:12px 13px;min-width:0}
+.record-card>small{display:block;font-size:8px;letter-spacing:.04em;color:var(--muted);font-weight:800;margin-bottom:9px}
+.record-card ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.record-card li{display:flex;align-items:center;gap:8px;min-width:0}
+.record-card li i{width:16px;height:16px;border-radius:5px;background:var(--line);color:var(--ink);font-style:normal;font-size:9px;font-weight:800;display:grid;place-items:center;flex:0 0 auto}
+.record-card li:first-child i{background:var(--accent);color:var(--primary)}
+.record-card li strong{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto}
+.record-card li em{font-style:normal;font-size:9px;color:var(--muted);margin-left:auto;white-space:nowrap;flex:0 0 auto}
+.record-card li.record-empty{font-size:9px;color:var(--muted);font-style:italic}
+@media (max-width:760px){
+  .fixture-list article.md-team-row{flex-wrap:wrap;gap:7px 9px}
+  .fixture-list article.md-team-row .md-team-name{flex:1 0 55%}
+  .records-grid{grid-template-columns:1fr}
+}
 
 /* Votación de propuestas de normas */
 .proposal{border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px;background:var(--surface-2)}
