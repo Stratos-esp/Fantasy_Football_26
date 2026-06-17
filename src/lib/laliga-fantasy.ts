@@ -189,3 +189,21 @@ export async function fetchMarketValues(externalId: number): Promise<{ date: str
   if (out[out.length - 1]?.date !== last.date) out.push(last);
   return out;
 }
+
+// Detalle por jornada de un jugador (goles, asistencias, tarjetas, minutos) para
+// la sincronización de estadísticas. Una llamada por jugador a la ficha de LaLiga.
+export type PlayerWeekDetail = { week: number; points: number; goals: number; assists: number; yellow: number; red: number; minutes: number };
+export async function fetchPlayerWeekStats(externalId: number): Promise<PlayerWeekDetail[]> {
+  const raw = (await authedFetch(`/api/v3/player/${externalId}`)) as RawPlayerFull;
+  const playerStats = Array.isArray(raw.playerStats) ? raw.playerStats : [];
+  const val = (s: RawPlayerStat, key: string) => (Array.isArray(s.stats?.[key]) ? Number(s.stats![key][0] ?? 0) : 0);
+  return playerStats.map((s) => ({
+    week: s.weekNumber,
+    points: Number(s.totalPoints ?? 0),
+    goals: val(s, "goals"),
+    assists: val(s, "goal_assist"),
+    yellow: val(s, "yellow_card"),
+    red: val(s, "red_card"),
+    minutes: val(s, "mins_played"),
+  }));
+}

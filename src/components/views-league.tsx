@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CircleDollarSign, Crown, Gavel, LockKeyhole, Play, Shield, Shirt, Trophy, X } from "lucide-react";
 import { apiGet, apiPost, money, moneyInput, nameAndSurname, pitchCoordinates, positionOrder, timeAgo } from "@/lib/client";
-import { formations, type LeagueState, type MatchdayDetail, type MatchdayDetailMember, type MatchdayDetailPlayer, type RivalSquadEntry } from "@/lib/types";
+import { formations, type LeagueState, type LeagueStats, type MatchdayDetail, type MatchdayDetailMember, type MatchdayDetailPlayer, type RivalSquadEntry } from "@/lib/types";
 import type { Notify } from "@/components/fantasy-app";
 import { PlayerAvatar, PositionTag, TeamBadge, UserAvatar } from "@/components/ui";
 
@@ -256,6 +256,15 @@ export function MatchdayView({ state, act, notify }: { state: LeagueState; act: 
   const [detail, setDetail] = useState<MatchdayDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [openManager, setOpenManager] = useState<string | null>(null);
+  const [leagueStats, setLeagueStats] = useState<LeagueStats | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    apiGet<LeagueStats>(`/api/league/${state.league.id}/stats`).then((result) => {
+      if (active) setLeagueStats(result.ok ? result.data : null);
+    });
+    return () => { active = false; };
+  }, [state.league.id, state.lastMatchday?.number]);
 
   useEffect(() => {
     if (round === null) { setDetail(null); return; }
@@ -371,6 +380,13 @@ export function MatchdayView({ state, act, notify }: { state: LeagueState; act: 
                       <span>{member.displayName}{member.memberId === myId ? " · Tú" : ""} · ver alineación</span>
                     </div>
                     <em>{Math.round(member.points)} pts<small className={diff >= 0 ? "positive" : "negative"}>{diff >= 0 ? "+" : ""}{Math.round(diff)}</small></em>
+                    <div className="md-row-stats">
+                      <span><b>{member.goals}</b> ⚽</span>
+                      <span><b>{member.yellow}</b> 🟨</span>
+                      <span><b>{member.red}</b> 🟥</span>
+                      <span><b>{member.played}/{member.startersCount}</b> jugaron</span>
+                      {member.topName && <span className="md-row-top">Top: <b>{member.topName}</b> ({Math.round(member.topPoints)} pts)</span>}
+                    </div>
                   </article>
                 );
               })}
@@ -387,6 +403,34 @@ export function MatchdayView({ state, act, notify }: { state: LeagueState; act: 
                       <small>J{r.number}</small>
                     </button>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {leagueStats && leagueStats.jornadasPlayed > 0 && (
+              <div className="matchday-records">
+                <span className="kicker">ESTADÍSTICAS GENERALES DE LA LIGA</span>
+                <div className="records-grid">
+                  <div>
+                    <small>MÁX. GOLES (EQUIPO · JORNADA)</small>
+                    <strong>{leagueStats.topTeamGoals ? `${leagueStats.topTeamGoals.goals} ⚽` : "—"}</strong>
+                    <span>{leagueStats.topTeamGoals ? `${leagueStats.topTeamGoals.teamName} · J${leagueStats.topTeamGoals.jornada}` : "Sin datos"}</span>
+                  </div>
+                  <div>
+                    <small>MEJOR JUGADOR EN UNA JORNADA</small>
+                    <strong>{leagueStats.bestPlayerRound ? `${Math.round(leagueStats.bestPlayerRound.points)} pts` : "—"}</strong>
+                    <span>{leagueStats.bestPlayerRound ? `${leagueStats.bestPlayerRound.playerName} · ${leagueStats.bestPlayerRound.teamName} · J${leagueStats.bestPlayerRound.jornada}` : "Sin datos"}</span>
+                  </div>
+                  <div>
+                    <small>TARJETAS EN LA LIGA</small>
+                    <strong>{leagueStats.totalYellow} 🟨 · {leagueStats.totalRed} 🟥</strong>
+                    <span>En {leagueStats.jornadasPlayed} jornada{leagueStats.jornadasPlayed === 1 ? "" : "s"} disputada{leagueStats.jornadasPlayed === 1 ? "" : "s"}</span>
+                  </div>
+                  <div>
+                    <small>JORNADAS QUE HAS GANADO</small>
+                    <strong>{leagueStats.myJornadasWon}<small> / {leagueStats.jornadasPlayed}</small></strong>
+                    <span>{state.myMember.teamName}</span>
+                  </div>
                 </div>
               </div>
             )}

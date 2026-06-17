@@ -5,7 +5,7 @@ import { laligaTeams, seedPlayerExternalId } from "@/lib/laliga-data";
 import { proposalOutcome } from "@/lib/voting";
 import {
   defaultLeagueSettings, formations, parseLeagueSettings,
-  type ActivityItem, type ApiPlayer, type LeagueSettings, type LeagueState, type LineupState,
+  type ActivityItem, type ApiPlayer, type LeagueSettings, type LeagueState, type LeagueStats, type LineupState,
   type MarketListing, type MatchdayDetail, type Position,
 } from "@/lib/types";
 
@@ -1407,12 +1407,36 @@ export async function getMatchdayDetail(db: Db, league: LeagueRow, number: numbe
   const { data: lps } = lineupIds.length > 0
     ? await db.from("fantasy_lineup_players").select("lineup_id, player_id, slot, is_starter").in("lineup_id", lineupIds)
     : { data: [] };
-  const { data: scores } = await db.from("fantasy_player_scores").select("player_id, points").eq("matchday_id", md.id).eq("league_id", league.id);
+  const { data: scores } = await db.from("fantasy_player_scores").select("player_id, points, breakdown").eq("matchday_id", md.id).eq("league_id", league.id);
   const scoreById = new Map((scores ?? []).map((s) => [s.player_id as string, Number(s.points)]));
+  const minutesById = new Map((scores ?? []).map((s) => [s.player_id as string, Number((s.breakdown as { minutes?: number } | null)?.minutes ?? 0)]));
+
+  // Detalle real de la jornada (goles y tarjetas) de los jugadores alineados.
+  const lineupPlayerIds = [...new Set((lps ?? []).map((p) => p.player_id as string))];
+  const detailByPlayer = new Map<string, { goals: number; yellow: number; red: number }>();
+  if (lineupPlayerIds.length > 0) {
+    const { data: wd } = await db
+      .from("fantasy_player_week_points")
+      .select("player_id, goals, yellow_cards, red_cards")
+      .eq("week", number)
+      .in("player_id", lineupPlayerIds);
+    for (const r of wd ?? []) detailByPlayer.set(r.player_id as string, { goals: Number(r.goals), yellow: Number(r.yellow_cards), red: Number(r.red_cards) });
+  }
 
   const members = membersData.map((m) => {
     const lineup = (lineups ?? []).find((l) => l.league_member_id === m.id);
     const rows = lineup ? (lps ?? []).filter((p) => p.lineup_id === lineup.id).sort((a, b) => (a.slot as number) - (b.slot as number)) : [];
+    const starterRows = rows.filter((p) => p.is_starter);
+    let goals = 0, yellow = 0, red = 0, played = 0, topPoints = -Infinity;
+    let topName: string | null = null;
+    for (const p of starterRows) {
+      const pid = p.player_id as string;
+      const d = detailByPlayer.get(pid);
+      if (d) { goals += d.goals; yellow += d.yellow; red += d.red; }
+      if ((minutesById.get(pid) ?? 0) > 0) played += 1;
+      const pts = scoreById.get(pid) ?? 0;
+      if (pts > topPoints) { topPoints = pts; topName = playersById.get(pid)?.name ?? "—"; }
+    }
     return {
       memberId: m.id,
       teamName: m.team_name,
@@ -1422,6 +1446,8 @@ export async function getMatchdayDetail(db: Db, league: LeagueRow, number: numbe
       points: Number(lineup?.total_points ?? 0),
       formation: (lineup?.formation as string) ?? "4-4-2",
       captainPlayerId: (lineup?.captain_player_id as string | null) ?? null,
+      goals, yellow, red, played, startersCount: starterRows.length,
+      topName, topPoints: topPoints === -Infinity ? 0 : topPoints,
       players: rows.map((p) => {
         const row = playersById.get(p.player_id as string);
         const api = row ? toApiPlayer(row, emptyStats) : null;
@@ -1441,6 +1467,74 @@ export async function getMatchdayDetail(db: Db, league: LeagueRow, number: numbe
   }).sort((a, b) => b.points - a.points);
 
   return { number: md.number, finished: md.status === "finished", members };
+}
+
+// Récords de la liga a lo largo de las jornadas disputadas: máximo de goles de un
+// equipo en una jornada, mejor actuación individual, tarjetas totales y cuántas
+// jornadas ha ganado el miembro indicado.
+export async function getLeagueStats(db: Db, league: LeagueRow, myMemberId: string): Promise<LeagueStats> {
+  const { data: mds } = await db.from("fantasy_matchdays").select("id, number").eq("league_id", league.id).eq("status", "finished");
+  const finished = mds ?? [];
+  if (finished.length === 0) {
+    return { topTeamGoals: null, bestPlayerRound: null, totalYellow: 0, totalRed: 0, myJornadasWon: 0, jornadasPlayed: 0 };
+  }
+  const mdIds = finished.map((m) => m.id as string);
+  const weekByMatchday = new Map(finished.map((m) => [m.id as string, Number(m.number)]));
+  const weeks = [...new Set(finished.map((m) => Number(m.number)))];
+
+  const { data: memberRows } = await db.from("fantasy_league_members").select("id, team_name").eq("league_id", league.id);
+  const teamNameByMember = new Map((memberRows ?? []).map((m) => [m.id as string, m.team_name as string]));
+
+  const { data: lineups } = await db.from("fantasy_lineups").select("id, league_member_id, matchday_id, total_points").in("matchday_id", mdIds);
+  const lineupIds = (lineups ?? []).map((l) => l.id as string);
+  const { data: lps } = lineupIds.length > 0
+    ? await db.from("fantasy_lineup_players").select("lineup_id, player_id, is_starter").in("lineup_id", lineupIds)
+    : { data: [] };
+  const { data: scores } = await db.from("fantasy_player_scores").select("matchday_id, player_id, points").eq("league_id", league.id).in("matchday_id", mdIds);
+  const scoreMap = new Map((scores ?? []).map((s) => [`${s.matchday_id}:${s.player_id}`, Number(s.points)]));
+
+  const playerIds = [...new Set((lps ?? []).map((p) => p.player_id as string))];
+  const { data: ws } = playerIds.length > 0
+    ? await db.from("fantasy_player_week_points").select("player_id, week, goals, yellow_cards, red_cards").in("week", weeks).in("player_id", playerIds)
+    : { data: [] };
+  const wsMap = new Map((ws ?? []).map((r) => [`${r.player_id}:${Number(r.week)}`, { goals: Number(r.goals), yellow: Number(r.yellow_cards), red: Number(r.red_cards) }]));
+  const { data: playerNames } = playerIds.length > 0
+    ? await db.from("fantasy_players").select("id, name").in("id", playerIds)
+    : { data: [] };
+  const nameById = new Map((playerNames ?? []).map((p) => [p.id as string, p.name as string]));
+
+  let topTeamGoals: LeagueStats["topTeamGoals"] = null;
+  let bestPlayerRound: LeagueStats["bestPlayerRound"] = null;
+  let totalYellow = 0;
+  let totalRed = 0;
+
+  for (const lineup of lineups ?? []) {
+    const week = weekByMatchday.get(lineup.matchday_id as string) ?? 0;
+    const team = teamNameByMember.get(lineup.league_member_id as string) ?? "—";
+    const starters = (lps ?? []).filter((x) => x.lineup_id === lineup.id && x.is_starter);
+    let goals = 0;
+    for (const s of starters) {
+      const pid = s.player_id as string;
+      const d = wsMap.get(`${pid}:${week}`);
+      if (d) { goals += d.goals; totalYellow += d.yellow; totalRed += d.red; }
+      const pts = scoreMap.get(`${lineup.matchday_id}:${pid}`) ?? 0;
+      if (!bestPlayerRound || pts > bestPlayerRound.points) {
+        bestPlayerRound = { playerName: nameById.get(pid) ?? "—", teamName: team, jornada: week, points: pts };
+      }
+    }
+    if (!topTeamGoals || goals > topTeamGoals.goals) topTeamGoals = { teamName: team, jornada: week, goals };
+  }
+
+  let myJornadasWon = 0;
+  for (const mdId of mdIds) {
+    const lns = (lineups ?? []).filter((l) => (l.matchday_id as string) === mdId);
+    if (lns.length === 0) continue;
+    const max = Math.max(...lns.map((l) => Number(l.total_points)));
+    const mine = lns.find((l) => (l.league_member_id as string) === myMemberId);
+    if (mine && max > 0 && Number(mine.total_points) === max) myJornadasWon += 1;
+  }
+
+  return { topTeamGoals, bestPlayerRound, totalYellow, totalRed, myJornadasWon, jornadasPlayed: finished.length };
 }
 
 export async function createProposal(db: Db, league: LeagueRow, member: MemberRow, actorUserId: string, summary: string, rawSettings: unknown) {
