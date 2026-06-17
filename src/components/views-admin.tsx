@@ -234,6 +234,7 @@ const RULE_LABELS: Record<keyof LeagueRules, string> = {
   negativeBalanceZero: "No puntuar con saldo negativo",
   maxDebtPercent: "Deuda máxima (% del equipo)",
   clauseInvestCost: "Coste de subir cláusula (€ por €)",
+  instantSellPct: "% venta inmediata",
 };
 const MARKET_LABELS: Record<keyof MarketSettings, string> = {
   bids: "Pujas",
@@ -473,7 +474,14 @@ export function NormasView({ state, act, notify }: { state: LeagueState; act: Ac
               <button onClick={() => update("maxDebtPercent", Math.min(100, rules.maxDebtPercent + 5))}><Plus /></button>
             </div>
           </SettingRow>
-          <small className="settings-help">Ejemplo: con deuda máxima 20% y un equipo de 100 M€, puedes gastar 20 M€ más de tu saldo. Con coste 2:1, invertir 2 M€ sube la cláusula 1 M€.</small>
+          <SettingRow title="% de venta inmediata" text="Porcentaje del valor de mercado que recibes cuando vendes un jugador directamente al mercado (sin subasta)">
+            <div className="stepper">
+              <button onClick={() => update("instantSellPct", Math.max(0, rules.instantSellPct - 5))}><Minus /></button>
+              <strong>{rules.instantSellPct}%</strong>
+              <button onClick={() => update("instantSellPct", Math.min(100, rules.instantSellPct + 5))}><Plus /></button>
+            </div>
+          </SettingRow>
+          <small className="settings-help">Ejemplo: con deuda máxima 20% y un equipo de 100 M€, puedes gastar 20 M€ más de tu saldo. Con coste 2:1, invertir 2 M€ sube la cláusula 1 M€. Con venta inmediata al 75%, un jugador de 10 M€ se vende por 7,5 M€.</small>
         </div>
 
         <div className="settings-save">

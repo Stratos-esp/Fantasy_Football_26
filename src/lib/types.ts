@@ -18,6 +18,7 @@ export type LeagueRules = {
   negativeBalanceZero: boolean;   // si terminas en negativo, no puntúas esa jornada (en vez de restar puntos)
   maxDebtPercent: number;         // % del valor de tu equipo que puedes endeudarte para fichar (0 = sin deuda)
   clauseInvestCost: number;       // € que hay que invertir por cada € de subida de cláusula (2 = relación 2:1)
+  instantSellPct: number;         // % del valor de mercado que recibes en una venta inmediata (0-100)
 };
 
 export type LeagueSettings = {
@@ -40,6 +41,7 @@ export const defaultLeagueRules: LeagueRules = {
   negativeBalanceZero: false,
   maxDebtPercent: 0,
   clauseInvestCost: 2,
+  instantSellPct: 75,
 };
 
 export const defaultLeagueSettings: LeagueSettings = {
@@ -90,6 +92,7 @@ function parseLeagueRules(raw: unknown): LeagueRules {
     negativeBalanceZero: bool(data.negativeBalanceZero, defaultLeagueRules.negativeBalanceZero),
     maxDebtPercent: Math.round(num(data.maxDebtPercent, defaultLeagueRules.maxDebtPercent, 0, 100)),
     clauseInvestCost: num(data.clauseInvestCost, defaultLeagueRules.clauseInvestCost, 1, 10),
+    instantSellPct: Math.round(num(data.instantSellPct, defaultLeagueRules.instantSellPct, 0, 100)),
   };
 }
 
@@ -102,6 +105,8 @@ export const formations: Record<string, { DEF: number; MED: number; DEL: number 
   "4-5-1": { DEF: 4, MED: 5, DEL: 1 },
   "5-4-1": { DEF: 5, MED: 4, DEL: 1 },
 };
+
+export type PlayerStatus = "injured" | "suspended_yellow" | "suspended_red" | null;
 
 export type ApiPlayer = {
   id: string;
@@ -116,7 +121,8 @@ export type ApiPlayer = {
   valueDelta: number;
   seasonPoints: number;
   lastPoints: number | null;
-  last5?: number[];
+  last5?: (number | null)[];
+  playerStatus?: PlayerStatus;
 };
 
 export type SquadEntry = ApiPlayer & {

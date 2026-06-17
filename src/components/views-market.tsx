@@ -164,8 +164,10 @@ export function MarketView({ state, act, notify }: { state: LeagueState; act: Ac
                   <em>{money(player.value)}</em>
                   <div className="row-actions">
                     <button className="ghost-button" disabled={busy} onClick={async () => {
-                      if (window.confirm(`¿Vender a ${player.name} al mercado por ${money(player.value)}? La operación es inmediata.`)) await run({ action: "sellToMarket", playerId: player.id }, "Jugador vendido al mercado.");
-                    }}>Vender ya</button>
+                      const pct = state.league.settings.rules.instantSellPct;
+                      const sellPrice = Math.round(player.value * pct / 100);
+                      if (window.confirm(`¿Venta inmediata de ${player.name} por ${money(sellPrice)} (${pct}% de ${money(player.value)})?`)) await run({ action: "sellToMarket", playerId: player.id }, "Jugador vendido.");
+                    }}>Venta inmediata</button>
                     <button className="ghost-button" disabled={!state.league.settings.market.fixedPrice} onClick={() => { setListTarget(player); setAmount(String(player.value / 1e6)); }}>Precio fijo</button>
                     <button className="ghost-button" disabled={!state.league.settings.market.clauses} onClick={() => { setClauseTarget(player); setAmount(""); }}><LockKeyhole size={13} /> Subir cláusula</button>
                   </div>

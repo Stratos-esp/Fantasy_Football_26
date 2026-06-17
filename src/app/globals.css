@@ -411,6 +411,7 @@ a { color:inherit; text-decoration:none; }
 .form-strip i{font-size:9px;min-width:16px;text-align:center;padding:1px 3px;border-radius:4px;font-style:normal;font-weight:700;line-height:1.5}
 .form-strip i.pos{background:rgba(53,200,120,.16);color:var(--positive)}
 .form-strip i.neg{background:rgba(230,90,90,.18);color:var(--danger)}
+.form-strip i.miss{background:rgba(120,120,120,.12);color:var(--muted)}
 
 /* Ficha global: estadísticas y barras desplazables */
 .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -666,6 +667,12 @@ button.points-bar{border:0;background:transparent;cursor:pointer;font:inherit}
 .avatar-stack{position:relative;display:inline-flex;flex:0 0 auto}
 .avatar-points{position:absolute;right:-4px;bottom:-4px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--primary-2);color:#fff;font:800 9px var(--font-display);font-style:normal;display:grid;place-items:center;border:2px solid var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.3);z-index:3}
 .full-pitch .avatar-points,.vertical-pitch .avatar-points{min-width:clamp(18px,4.6cqi,26px);height:clamp(18px,4.6cqi,26px);font-size:clamp(9px,2.2cqi,12px);border-color:rgba(255,255,255,.85)}
+/* Badges de estado del jugador (lesionado / sancionado) — esquina superior derecha */
+.player-status-badge{position:absolute;top:-3px;right:-3px;z-index:4;border:2px solid var(--surface);border-radius:50%;width:16px;height:16px;display:grid;place-items:center;font-style:normal;font-size:10px;font-weight:900;line-height:1}
+.player-status-badge.injured{background:#e74c3c;color:#fff}
+.player-status-badge.card{border-radius:3px;width:10px;height:14px}
+.player-status-badge.card.yellow{background:#f39c12}
+.player-status-badge.card.red{background:#e74c3c}
 
 /* Convocatoria rediseñada: cara · escudo/posición · nombre/forma · valor/evolución */
 .squad-row{grid-template-columns:62px 40px 1fr auto;gap:13px;align-items:center;padding:8px 16px}

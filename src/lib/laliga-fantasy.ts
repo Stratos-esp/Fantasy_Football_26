@@ -41,6 +41,7 @@ export type RealPlayer = {
   teamBadge: string | null;
   photo: string | null;
   weekPoints: Map<number, number>; // jornada → puntos
+  playerMasterStatusId?: number;   // estado actual (0=ok, 2=lesionado, 3=sancionado)
 };
 
 type RawPlayer = {
@@ -51,6 +52,10 @@ type RawPlayer = {
   teamId: number;
   weekPoints?: number;
   images?: { transparent?: Record<string, string> };
+  // Estado del jugador: 0=disponible, 1=duda, 2=lesionado, 3=sancionado (varía según versión de API)
+  playerMasterStatusId?: number;
+  // Tarjetas acumuladas en la temporada (para detectar sanción por acumulación)
+  sanctions?: { yellowCards?: number; redCard?: boolean };
 };
 
 type RawTeam = { id: number; mainName: string; badgeColor?: string; players: RawPlayer[] };
@@ -104,6 +109,8 @@ export async function fetchSeason(fromWeek: number, toWeek: number): Promise<Rea
           entry.teamBadge = team.badgeColor ?? entry.teamBadge;
           entry.photo = photoFrom(raw) ?? entry.photo;
           if (typeof raw.weekPoints === "number") entry.weekPoints.set(week, raw.weekPoints);
+          // Captura el estado más reciente del jugador si la API lo proporciona
+          if (raw.playerMasterStatusId !== undefined) entry.playerMasterStatusId = raw.playerMasterStatusId;
         }
       }
     }

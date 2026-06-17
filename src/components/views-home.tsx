@@ -88,7 +88,7 @@ export function HomeView({ state, onNavigate }: { state: LeagueState; onNavigate
         <div className="mini-market-list">
           {state.market.slice(0, 3).map((listing) => (
             <div key={listing.id}>
-              <PlayerAvatar player={listing.player} small />
+              <PlayerAvatar player={listing.player} small points={listing.player.seasonPoints} />
               <span><strong><TeamBadge player={listing.player} />{listing.player.name}</strong><small>{listing.player.team}</small></span>
               <div><b>{money(listing.askingPrice)}</b><Trend player={listing.player} /></div>
             </div>

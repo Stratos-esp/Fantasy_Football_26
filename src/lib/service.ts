@@ -48,6 +48,7 @@ type PlayerRow = {
   name: string;
   position: Position;
   current_value: number;
+  status: string;
   team_id: string | null;
   photo_url: string | null;
   metadata: Record<string, unknown> | null;
@@ -186,6 +187,7 @@ export type RealPlayerInput = {
   teamBadge: string | null;
   photo: string | null;
   weekPoints: [number, number][];
+  playerMasterStatusId?: number;
 };
 
 export async function seedLaLigaReal(db: Db, season: number, players: RealPlayerInput[]) {
@@ -217,17 +219,22 @@ export async function seedLaLigaReal(db: Db, season: number, players: RealPlayer
   const playerRows = players.map((player) => {
     const seasonPoints = player.weekPoints.reduce((sum, [, pts]) => sum + pts, 0);
     const value = realValue(seasonPoints, player.weekPoints.length);
-    return {
+    // Mapeo de playerMasterStatusId de LaLiga Fantasy a estado interno
+    const statusFromApi = player.playerMasterStatusId !== undefined
+      ? (player.playerMasterStatusId === 2 ? "injured" : player.playerMasterStatusId === 3 ? "suspended" : "available")
+      : undefined;
+    const row: Record<string, unknown> = {
       external_id: player.externalId,
       team_id: teamIdByExternal.get(player.teamExternalId) ?? null,
       season,
       name: player.name,
       position: player.position,
       photo_url: player.photo,
-      status: "available",
       current_value: value,
       metadata: { source: "laliga-fantasy", baseValue: value, seasonPoints },
     };
+    if (statusFromApi !== undefined) row.status = statusFromApi;
+    return row;
   });
   for (let i = 0; i < playerRows.length; i += 200) {
     const { error } = await db.from("fantasy_players").upsert(playerRows.slice(i, i + 200), { onConflict: "external_id,season" });
@@ -248,7 +255,7 @@ export async function seedLaLigaReal(db: Db, season: number, players: RealPlayer
     const playerId = idByExternal.get(player.externalId);
     if (!playerId) continue;
     for (const [week, points] of player.weekPoints) {
-      weekRows.push({ player_id: playerId, week, points, played: true });
+      weekRows.push({ player_id: playerId, week, points, played: points !== 0 });
     }
   }
   for (let i = 0; i < weekRows.length; i += 500) {
@@ -266,7 +273,7 @@ export async function seedLaLigaReal(db: Db, season: number, players: RealPlayer
 async function fetchPlayers(db: Db, season: number): Promise<PlayerRow[]> {
   const { data, error } = await db
     .from("fantasy_players")
-    .select("id, name, position, current_value, team_id, photo_url, metadata, team:fantasy_teams(external_id, name, short_name, badge_url, colors)")
+    .select("id, name, position, current_value, status, team_id, photo_url, metadata, team:fantasy_teams(external_id, name, short_name, badge_url, colors)")
     .eq("season", season)
     .gt("current_value", 0)
     .limit(2000);
@@ -968,6 +975,8 @@ async function assignBalancedSquads(db: Db, league: LeagueRow, memberIds: string
 function toApiPlayer(player: PlayerRow, stats: Map<string, { season: number; last: number | null }>): ApiPlayer {
   const teamColors = Array.isArray(player.team?.colors) ? (player.team?.colors as string[]) : [];
   const playerStats = stats.get(player.id);
+  const status = player.status;
+  const playerStatus = status === "injured" ? "injured" : status === "suspended" || status === "suspended_red" ? "suspended_red" : status === "suspended_yellow" ? "suspended_yellow" : null;
   return {
     id: player.id,
     name: player.name,
@@ -981,6 +990,7 @@ function toApiPlayer(player: PlayerRow, stats: Map<string, { season: number; las
     valueDelta: Number(player.current_value) - Number((player.metadata as { prevValue?: number } | null)?.prevValue ?? player.current_value),
     seasonPoints: playerStats?.season ?? 0,
     lastPoints: playerStats?.last ?? null,
+    playerStatus,
   };
 }
 
@@ -998,7 +1008,7 @@ export async function getLeagueState(db: Db, league: LeagueRow, member: MemberRo
   }
   const player = (id: string): ApiPlayer => {
     const row = playersById.get(id);
-    return row ? toApiPlayer(row, stats) : { id, name: "Jugador", position: "MED", team: "—", teamShort: "?", teamColor: "#3b6c4f", teamLogo: null, photo: null, value: 0, valueDelta: 0, seasonPoints: 0, lastPoints: null };
+    return row ? toApiPlayer(row, stats) : { id, name: "Jugador", position: "MED", team: "—", teamShort: "?", teamColor: "#3b6c4f", teamLogo: null, photo: null, value: 0, valueDelta: 0, seasonPoints: 0, lastPoints: null, playerStatus: null };
   };
 
   const { data: memberRows } = await db
@@ -1260,25 +1270,40 @@ export async function getLeagueState(db: Db, league: LeagueRow, member: MemberRo
   const rivalSquads = squads.filter((row) => row.league_member_id !== member.id);
 
   // Forma: puntos de las últimas 5 jornadas reales de cada jugador de mi plantilla.
-  const last5ByPlayer = new Map<string, number[]>();
+  // null = no jugó (played=false o sin datos esa jornada)
+  const last5ByPlayer = new Map<string, (number | null)[]>();
   const mySquadIds = mySquad.map((row) => row.player_id as string);
   if (mySquadIds.length > 0) {
     const { data: wpMax } = await db.from("fantasy_player_week_points").select("week").order("week", { ascending: false }).limit(1).maybeSingle();
     const maxWeek = Number(wpMax?.week ?? 0);
     if (maxWeek > 0) {
+      const fromWeek = Math.max(1, maxWeek - 4);
       const { data: wpRows } = await db
         .from("fantasy_player_week_points")
-        .select("player_id, week, points")
-        .gte("week", Math.max(1, maxWeek - 4))
+        .select("player_id, week, points, played")
+        .gte("week", fromWeek)
         .lte("week", maxWeek)
         .in("player_id", mySquadIds);
-      const grouped = new Map<string, { week: number; points: number }[]>();
+      const grouped = new Map<string, Map<number, { points: number; played: boolean }>>();
       for (const r of wpRows ?? []) {
-        const arr = grouped.get(r.player_id as string) ?? [];
-        arr.push({ week: Number(r.week), points: Number(r.points) });
-        grouped.set(r.player_id as string, arr);
+        const byWeek = grouped.get(r.player_id as string) ?? new Map<number, { points: number; played: boolean }>();
+        byWeek.set(Number(r.week), { points: Number(r.points), played: Boolean(r.played) });
+        grouped.set(r.player_id as string, byWeek);
       }
-      for (const [pid, arr] of grouped) last5ByPlayer.set(pid, arr.sort((a, b) => a.week - b.week).map((x) => x.points));
+      for (const [pid, byWeek] of grouped) {
+        const padded: (number | null)[] = [];
+        for (let w = fromWeek; w <= maxWeek; w++) {
+          const entry = byWeek.get(w);
+          padded.push(entry && entry.played ? entry.points : null);
+        }
+        last5ByPlayer.set(pid, padded);
+      }
+      // Jugadores de plantilla sin ningún dato en las últimas 5 jornadas → relleno de nulls
+      for (const pid of mySquadIds) {
+        if (!last5ByPlayer.has(pid)) {
+          last5ByPlayer.set(pid, Array.from({ length: maxWeek - fromWeek + 1 }, () => null));
+        }
+      }
     }
   }
 

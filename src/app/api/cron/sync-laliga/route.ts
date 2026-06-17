@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     const to = url.searchParams.get("to") ? Number(url.searchParams.get("to")) : await currentWeek();
     const players = await fetchSeason(from, Math.max(from, to));
     if (players.length === 0) return NextResponse.json({ error: "LaLiga no devolvió jugadores." }, { status: 502 });
-    const result = await seedLaLigaReal(db, season, players.map((p) => ({ ...p, weekPoints: [...p.weekPoints.entries()] })));
+    const result = await seedLaLigaReal(db, season, players.map((p) => ({ ...p, weekPoints: [...p.weekPoints.entries()], playerMasterStatusId: p.playerMasterStatusId })));
     return NextResponse.json({ ok: true, season, from, to, ...result });
   } catch (error) {
     return errorResponse(error);

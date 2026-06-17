@@ -123,15 +123,17 @@ async function sellToMarket(context: MemberContext, body: Payload) {
   if ((count ?? 0) <= 11) throw new ServiceError("No puedes quedarte con menos de 11 jugadores.");
   const { data: playerRow } = await context.db.from("fantasy_players").select("name, current_value").eq("id", body.playerId).maybeSingle();
   if (!playerRow) throw new ServiceError("Jugador no encontrado.");
+  const settings = leagueSettings(context.league);
+  const sellPrice = Math.round(Number(playerRow.current_value) * settings.rules.instantSellPct / 100);
   await executeTransfer(context.db, {
     league: context.league,
     playerId: body.playerId,
     fromMemberId: context.member.id,
     toMemberId: null,
-    amount: Number(playerRow.current_value),
+    amount: sellPrice,
     kind: "fixed",
     actorUserId: context.user.id,
-    detail: `${context.member.team_name} vendió a ${playerRow.name} al mercado por ${money(Number(playerRow.current_value))}`,
+    detail: `${context.member.team_name} vendió a ${playerRow.name} por venta inmediata (${settings.rules.instantSellPct}% → ${money(sellPrice)})`,
   });
   return NextResponse.json({ ok: true });
 }

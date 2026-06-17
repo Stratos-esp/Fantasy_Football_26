@@ -4,7 +4,7 @@ import Image from "next/image";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import type { ApiPlayer } from "@/lib/types";
 
-export function PlayerAvatar({ player, small = false, points }: { player: Pick<ApiPlayer, "name" | "team" | "teamColor" | "teamLogo"> & { photo?: string | null }; small?: boolean; points?: number }) {
+export function PlayerAvatar({ player, small = false, points }: { player: Pick<ApiPlayer, "name" | "team" | "teamColor" | "teamLogo" | "playerStatus"> & { photo?: string | null }; small?: boolean; points?: number }) {
   const avatar = (
     <span
       className={`player-avatar ${small ? "small" : ""} ${player.photo ? "has-photo" : ""}`}
@@ -26,9 +26,22 @@ export function PlayerAvatar({ player, small = false, points }: { player: Pick<A
       )}
     </span>
   );
-  if (points === undefined) return avatar;
-  // El globo de puntos va fuera del círculo (que recorta), por eso envolvemos.
-  return <span className="avatar-stack">{avatar}<em className="avatar-points">{Math.round(points)}</em></span>;
+  const statusBadge = player.playerStatus === "injured"
+    ? <span className="player-status-badge injured" title="Lesionado">+</span>
+    : player.playerStatus === "suspended_yellow"
+      ? <span className="player-status-badge card yellow" title="Sancionado (amarillas)" />
+      : player.playerStatus === "suspended_red"
+        ? <span className="player-status-badge card red" title="Sancionado (roja)" />
+        : null;
+  if (!statusBadge && points === undefined) return avatar;
+  // Los badges van fuera del círculo (que tiene overflow:hidden), por eso envolvemos.
+  return (
+    <span className="avatar-stack">
+      {avatar}
+      {statusBadge}
+      {points !== undefined && <em className="avatar-points">{Math.round(points)}</em>}
+    </span>
+  );
 }
 
 // Avatar de un mánager: su foto de perfil o sus iniciales sobre su color.

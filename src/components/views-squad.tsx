@@ -11,11 +11,15 @@ import { PlayerModal } from "@/components/player-modal";
 type Act = (url: string, body?: unknown, method?: "POST" | "PUT") => Promise<boolean>;
 
 // Forma reciente: puntos de las últimas jornadas como chips de color.
-function FormStrip({ points }: { points?: number[] }) {
+function FormStrip({ points }: { points?: (number | null)[] }) {
   if (!points || points.length === 0) return null;
   return (
     <span className="form-strip" title="Puntos de las últimas jornadas">
-      {points.map((p, i) => <i key={i} className={p >= 0 ? "pos" : "neg"}>{Math.round(p)}</i>)}
+      {points.map((p, i) => (
+        <i key={i} className={p === null ? "miss" : p > 0 ? "pos" : p < 0 ? "neg" : "miss"}>
+          {p === null ? "—" : p === 0 ? "—" : Math.round(p)}
+        </i>
+      ))}
     </span>
   );
 }
