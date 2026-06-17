@@ -1472,11 +1472,11 @@ export async function getMatchdayDetail(db: Db, league: LeagueRow, number: numbe
 // Récords de la liga a lo largo de las jornadas disputadas: máximo de goles de un
 // equipo en una jornada, mejor actuación individual, tarjetas totales y cuántas
 // jornadas ha ganado el miembro indicado.
-export async function getLeagueStats(db: Db, league: LeagueRow, myMemberId: string): Promise<LeagueStats> {
+export async function getLeagueStats(db: Db, league: LeagueRow): Promise<LeagueStats> {
   const { data: mds } = await db.from("fantasy_matchdays").select("id, number").eq("league_id", league.id).eq("status", "finished");
   const finished = mds ?? [];
   if (finished.length === 0) {
-    return { topTeamGoals: null, bestPlayerRound: null, totalYellow: 0, totalRed: 0, myJornadasWon: 0, jornadasPlayed: 0 };
+    return { topTeamGoals: [], bestPlayerRound: [], topCards: [], topJornadasWon: [], jornadasPlayed: 0 };
   }
   const mdIds = finished.map((m) => m.id as string);
   const weekByMatchday = new Map(finished.map((m) => [m.id as string, Number(m.number)]));
@@ -1503,38 +1503,56 @@ export async function getLeagueStats(db: Db, league: LeagueRow, myMemberId: stri
     : { data: [] };
   const nameById = new Map((playerNames ?? []).map((p) => [p.id as string, p.name as string]));
 
-  let topTeamGoals: LeagueStats["topTeamGoals"] = null;
-  let bestPlayerRound: LeagueStats["bestPlayerRound"] = null;
-  let totalYellow = 0;
-  let totalRed = 0;
+  const goalsEvents: { teamName: string; jornada: number; goals: number }[] = [];
+  const playerEvents: { playerName: string; teamName: string; jornada: number; points: number }[] = [];
+  const cardsByMember = new Map<string, { yellow: number; red: number }>();
 
   for (const lineup of lineups ?? []) {
     const week = weekByMatchday.get(lineup.matchday_id as string) ?? 0;
-    const team = teamNameByMember.get(lineup.league_member_id as string) ?? "—";
+    const memberId = lineup.league_member_id as string;
+    const team = teamNameByMember.get(memberId) ?? "—";
     const starters = (lps ?? []).filter((x) => x.lineup_id === lineup.id && x.is_starter);
+    const cm = cardsByMember.get(memberId) ?? { yellow: 0, red: 0 };
     let goals = 0;
     for (const s of starters) {
       const pid = s.player_id as string;
       const d = wsMap.get(`${pid}:${week}`);
-      if (d) { goals += d.goals; totalYellow += d.yellow; totalRed += d.red; }
+      if (d) { goals += d.goals; cm.yellow += d.yellow; cm.red += d.red; }
       const pts = scoreMap.get(`${lineup.matchday_id}:${pid}`) ?? 0;
-      if (!bestPlayerRound || pts > bestPlayerRound.points) {
-        bestPlayerRound = { playerName: nameById.get(pid) ?? "—", teamName: team, jornada: week, points: pts };
-      }
+      playerEvents.push({ playerName: nameById.get(pid) ?? "—", teamName: team, jornada: week, points: pts });
     }
-    if (!topTeamGoals || goals > topTeamGoals.goals) topTeamGoals = { teamName: team, jornada: week, goals };
+    cardsByMember.set(memberId, cm);
+    goalsEvents.push({ teamName: team, jornada: week, goals });
   }
 
-  let myJornadasWon = 0;
+  // Jornadas ganadas por cada equipo (el de más puntos en cada jornada).
+  const wonByMember = new Map<string, number>();
   for (const mdId of mdIds) {
     const lns = (lineups ?? []).filter((l) => (l.matchday_id as string) === mdId);
     if (lns.length === 0) continue;
     const max = Math.max(...lns.map((l) => Number(l.total_points)));
-    const mine = lns.find((l) => (l.league_member_id as string) === myMemberId);
-    if (mine && max > 0 && Number(mine.total_points) === max) myJornadasWon += 1;
+    if (max <= 0) continue;
+    for (const l of lns) {
+      if (Number(l.total_points) === max) {
+        const id = l.league_member_id as string;
+        wonByMember.set(id, (wonByMember.get(id) ?? 0) + 1);
+      }
+    }
   }
 
-  return { topTeamGoals, bestPlayerRound, totalYellow, totalRed, myJornadasWon, jornadasPlayed: finished.length };
+  const topTeamGoals = goalsEvents.filter((e) => e.goals > 0).sort((a, b) => b.goals - a.goals).slice(0, 3);
+  const bestPlayerRound = playerEvents.sort((a, b) => b.points - a.points).slice(0, 3);
+  const topCards = [...cardsByMember.entries()]
+    .map(([id, c]) => ({ teamName: teamNameByMember.get(id) ?? "—", yellow: c.yellow, red: c.red }))
+    .filter((c) => c.yellow + c.red > 0)
+    .sort((a, b) => (b.yellow + b.red) - (a.yellow + a.red))
+    .slice(0, 3);
+  const topJornadasWon = [...wonByMember.entries()]
+    .map(([id, won]) => ({ teamName: teamNameByMember.get(id) ?? "—", won }))
+    .sort((a, b) => b.won - a.won)
+    .slice(0, 3);
+
+  return { topTeamGoals, bestPlayerRound, topCards, topJornadasWon, jornadasPlayed: finished.length };
 }
 
 export async function createProposal(db: Db, league: LeagueRow, member: MemberRow, actorUserId: string, summary: string, rawSettings: unknown) {

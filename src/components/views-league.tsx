@@ -369,27 +369,21 @@ export function MatchdayView({ state, act, notify }: { state: LeagueState; act: 
         ) : (
           <>
             <div className="fixture-list">
-              {ranked.map((member, index) => {
-                const diff = average !== null ? member.points - average : 0;
-                return (
-                  <article key={member.memberId} className={member.memberId === myId ? "mine clickable-row" : "clickable-row"} onClick={() => setOpenManager(member.memberId)}>
-                    <time>{index + 1}º</time>
-                    <div>
-                      <UserAvatar name={member.teamName} color={member.color} avatarUrl={member.avatarUrl} />
-                      <strong>{member.teamName}</strong>
-                      <span>{member.displayName}{member.memberId === myId ? " · Tú" : ""} · ver alineación</span>
-                    </div>
-                    <em>{Math.round(member.points)} pts<small className={diff >= 0 ? "positive" : "negative"}>{diff >= 0 ? "+" : ""}{Math.round(diff)}</small></em>
-                    <div className="md-row-stats">
-                      <span><b>{member.goals}</b> ⚽</span>
-                      <span><b>{member.yellow}</b> 🟨</span>
-                      <span><b>{member.red}</b> 🟥</span>
-                      <span><b>{member.played}/{member.startersCount}</b> jugaron</span>
-                      {member.topName && <span className="md-row-top">Top: <b>{member.topName}</b> ({Math.round(member.topPoints)} pts)</span>}
-                    </div>
-                  </article>
-                );
-              })}
+              {ranked.map((member, index) => (
+                <article key={member.memberId} className={`md-team-row clickable-row ${member.memberId === myId ? "mine" : ""}`} onClick={() => setOpenManager(member.memberId)}>
+                  <time>{index + 1}º</time>
+                  <UserAvatar name={member.teamName} color={member.color} avatarUrl={member.avatarUrl} />
+                  <span className="md-team-name">
+                    <strong>{member.teamName}{member.memberId === myId ? " · Tú" : ""}</strong>
+                    <small>{member.displayName} · ver alineación</small>
+                  </span>
+                  <span className="md-stat md-stat-pts"><b>{Math.round(member.points)}</b><small>pts</small></span>
+                  <span className="md-stat"><b>{member.goals}</b><small>⚽</small></span>
+                  <span className="md-stat"><b>{member.yellow}</b><small>🟨</small></span>
+                  <span className="md-stat"><b>{member.red}</b><small>🟥</small></span>
+                  <span className="md-stat"><b>{member.played}/{member.startersCount}</b><small>jugaron</small></span>
+                </article>
+              ))}
             </div>
 
             {myHistory.length > 1 && (
@@ -409,27 +403,43 @@ export function MatchdayView({ state, act, notify }: { state: LeagueState; act: 
 
             {leagueStats && leagueStats.jornadasPlayed > 0 && (
               <div className="matchday-records">
-                <span className="kicker">ESTADÍSTICAS GENERALES DE LA LIGA</span>
+                <span className="kicker">ESTADÍSTICAS GENERALES DE LA LIGA · TOP 3</span>
                 <div className="records-grid">
-                  <div>
-                    <small>MÁX. GOLES (EQUIPO · JORNADA)</small>
-                    <strong>{leagueStats.topTeamGoals ? `${leagueStats.topTeamGoals.goals} ⚽` : "—"}</strong>
-                    <span>{leagueStats.topTeamGoals ? `${leagueStats.topTeamGoals.teamName} · J${leagueStats.topTeamGoals.jornada}` : "Sin datos"}</span>
+                  <div className="record-card">
+                    <small>MÁS GOLES EN UNA JORNADA</small>
+                    <ol>
+                      {leagueStats.topTeamGoals.map((r, i) => (
+                        <li key={i}><i>{i + 1}</i><strong>{r.teamName}</strong><em>{r.goals} ⚽ · J{r.jornada}</em></li>
+                      ))}
+                      {leagueStats.topTeamGoals.length === 0 && <li className="record-empty">Sin goles todavía</li>}
+                    </ol>
                   </div>
-                  <div>
+                  <div className="record-card">
                     <small>MEJOR JUGADOR EN UNA JORNADA</small>
-                    <strong>{leagueStats.bestPlayerRound ? `${Math.round(leagueStats.bestPlayerRound.points)} pts` : "—"}</strong>
-                    <span>{leagueStats.bestPlayerRound ? `${leagueStats.bestPlayerRound.playerName} · ${leagueStats.bestPlayerRound.teamName} · J${leagueStats.bestPlayerRound.jornada}` : "Sin datos"}</span>
+                    <ol>
+                      {leagueStats.bestPlayerRound.map((r, i) => (
+                        <li key={i}><i>{i + 1}</i><strong>{r.teamName}</strong><em>{r.playerName} · {Math.round(r.points)} pts · J{r.jornada}</em></li>
+                      ))}
+                      {leagueStats.bestPlayerRound.length === 0 && <li className="record-empty">Sin datos todavía</li>}
+                    </ol>
                   </div>
-                  <div>
-                    <small>TARJETAS EN LA LIGA</small>
-                    <strong>{leagueStats.totalYellow} 🟨 · {leagueStats.totalRed} 🟥</strong>
-                    <span>En {leagueStats.jornadasPlayed} jornada{leagueStats.jornadasPlayed === 1 ? "" : "s"} disputada{leagueStats.jornadasPlayed === 1 ? "" : "s"}</span>
+                  <div className="record-card">
+                    <small>MÁS TARJETAS</small>
+                    <ol>
+                      {leagueStats.topCards.map((r, i) => (
+                        <li key={i}><i>{i + 1}</i><strong>{r.teamName}</strong><em>{r.yellow} 🟨 · {r.red} 🟥</em></li>
+                      ))}
+                      {leagueStats.topCards.length === 0 && <li className="record-empty">Sin tarjetas todavía</li>}
+                    </ol>
                   </div>
-                  <div>
-                    <small>JORNADAS QUE HAS GANADO</small>
-                    <strong>{leagueStats.myJornadasWon}<small> / {leagueStats.jornadasPlayed}</small></strong>
-                    <span>{state.myMember.teamName}</span>
+                  <div className="record-card">
+                    <small>MÁS JORNADAS GANADAS</small>
+                    <ol>
+                      {leagueStats.topJornadasWon.map((r, i) => (
+                        <li key={i}><i>{i + 1}</i><strong>{r.teamName}</strong><em>{r.won} jornada{r.won === 1 ? "" : "s"}</em></li>
+                      ))}
+                      {leagueStats.topJornadasWon.length === 0 && <li className="record-empty">Sin datos todavía</li>}
+                    </ol>
                   </div>
                 </div>
               </div>

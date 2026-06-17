@@ -6,8 +6,8 @@ import { getLeagueStats } from "@/lib/service";
 // jornadas ganadas) para el cuadro de estadísticas generales de la vista Jornada.
 export async function GET(_request: Request, { params }: { params: Promise<{ leagueId: string }> }) {
   const { leagueId } = await params;
-  return withMember(leagueId, async ({ db, league, member }) => {
-    const stats = await getLeagueStats(db, league, member.id);
+  return withMember(leagueId, async ({ db, league }) => {
+    const stats = await getLeagueStats(db, league);
     return NextResponse.json(stats);
   });
 }
