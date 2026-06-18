@@ -10,12 +10,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
-- En la Clasificación de la jornada, cada equipo muestra en una sola línea sus
-  puntos, goles, tarjetas (amarillas y rojas) y cuántos jugadores jugaron
-  (p. ej. 8/11). El jugador con más puntos del equipo se ve al abrir su ficha.
-- Nuevo cuadro «Estadísticas generales de la liga» en la vista Jornada, con los
-  récords en formato top 3 (equipo destacado y dato): más goles de un equipo en
-  una jornada, mejor actuación individual, más tarjetas y más jornadas ganadas.
+- En la Clasificación de la jornada, cada equipo muestra en una sola línea
+  (también en móvil) sus puntos, goles, tarjetas (amarillas y rojas), cuántos
+  jugadores jugaron (p. ej. 8/11) y su jugador con más puntos de la jornada.
+- Cuadro «Récords de la liga · Top 3» en la pestaña Clasificación: más goles de
+  un equipo en una jornada, mejor jugador en una jornada (nombre del jugador y
+  su equipo), más tarjetas y más jornadas ganadas.
 - Sincronización de estadísticas detalladas (goles, asistencias, tarjetas y
   minutos) por jugador y jornada desde LaLiga Fantasy (cron sync-stats).
 - Documentación común para mantener el historial y coordinar contribuciones.
