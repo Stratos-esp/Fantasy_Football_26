@@ -15,6 +15,14 @@ export function StandingsView({ state, act, notify }: { state: LeagueState; act:
   const [offerTarget, setOfferTarget] = useState<RivalSquadEntry | null>(null);
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
+  const [leagueStats, setLeagueStats] = useState<LeagueStats | null>(null);
+  useEffect(() => {
+    let active = true;
+    apiGet<LeagueStats>(`/api/league/${state.league.id}/stats`).then((result) => {
+      if (active) setLeagueStats(result.ok ? result.data : null);
+    });
+    return () => { active = false; };
+  }, [state.league.id, state.lastMatchday?.number]);
   const members = state.members;
   const average = members.length > 0 ? Math.round(members.reduce((sum, m) => sum + m.totalPoints, 0) / members.length) : 0;
   const topValue = Math.max(0, ...members.map((m) => m.squadValue));
@@ -153,6 +161,49 @@ export function StandingsView({ state, act, notify }: { state: LeagueState; act:
           )}
         </section>
       </aside>
+      {leagueStats && leagueStats.jornadasPlayed > 0 && (
+        <section className="panel records-panel">
+          <div className="panel-head"><div><span className="kicker">ESTADÍSTICAS GENERALES</span><h2>Récords de la liga · Top 3</h2></div></div>
+          <div className="records-grid">
+            <div className="record-card">
+              <small>MÁS GOLES EN UNA JORNADA</small>
+              <ol>
+                {leagueStats.topTeamGoals.map((r, i) => (
+                  <li key={i}><i>{i + 1}</i><strong>{r.teamName}</strong><em>{r.goals} ⚽ · J{r.jornada}</em></li>
+                ))}
+                {leagueStats.topTeamGoals.length === 0 && <li className="record-empty">Sin goles todavía</li>}
+              </ol>
+            </div>
+            <div className="record-card">
+              <small>MEJOR JUGADOR EN UNA JORNADA</small>
+              <ol>
+                {leagueStats.bestPlayerRound.map((r, i) => (
+                  <li key={i}><i>{i + 1}</i><strong>{r.playerName}</strong><em>{r.teamName} · {Math.round(r.points)} pts · J{r.jornada}</em></li>
+                ))}
+                {leagueStats.bestPlayerRound.length === 0 && <li className="record-empty">Sin datos todavía</li>}
+              </ol>
+            </div>
+            <div className="record-card">
+              <small>MÁS TARJETAS</small>
+              <ol>
+                {leagueStats.topCards.map((r, i) => (
+                  <li key={i}><i>{i + 1}</i><strong>{r.teamName}</strong><em>{r.yellow} 🟨 · {r.red} 🟥</em></li>
+                ))}
+                {leagueStats.topCards.length === 0 && <li className="record-empty">Sin tarjetas todavía</li>}
+              </ol>
+            </div>
+            <div className="record-card">
+              <small>MÁS JORNADAS GANADAS</small>
+              <ol>
+                {leagueStats.topJornadasWon.map((r, i) => (
+                  <li key={i}><i>{i + 1}</i><strong>{r.teamName}</strong><em>{r.won} jornada{r.won === 1 ? "" : "s"}</em></li>
+                ))}
+                {leagueStats.topJornadasWon.length === 0 && <li className="record-empty">Sin datos todavía</li>}
+              </ol>
+            </div>
+          </div>
+        </section>
+      )}
       {selectedRival && (
         <div className="modal-backdrop" onMouseDown={() => setSelectedRivalId(null)}>
           <div className="lineup-modal standings-rival-modal" onMouseDown={(event) => event.stopPropagation()}>
@@ -256,15 +307,6 @@ export function MatchdayView({ state, act, notify }: { state: LeagueState; act: 
   const [detail, setDetail] = useState<MatchdayDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [openManager, setOpenManager] = useState<string | null>(null);
-  const [leagueStats, setLeagueStats] = useState<LeagueStats | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    apiGet<LeagueStats>(`/api/league/${state.league.id}/stats`).then((result) => {
-      if (active) setLeagueStats(result.ok ? result.data : null);
-    });
-    return () => { active = false; };
-  }, [state.league.id, state.lastMatchday?.number]);
 
   useEffect(() => {
     if (round === null) { setDetail(null); return; }
@@ -382,6 +424,7 @@ export function MatchdayView({ state, act, notify }: { state: LeagueState; act: 
                   <span className="md-stat"><b>{member.yellow}</b><small>🟨</small></span>
                   <span className="md-stat"><b>{member.red}</b><small>🟥</small></span>
                   <span className="md-stat"><b>{member.played}/{member.startersCount}</b><small>jugaron</small></span>
+                  <span className="md-stat md-stat-top" title={member.topName ? `${member.topName} · ${Math.round(member.topPoints)} pts` : ""}><b>{member.topName ?? "—"}</b><small>⭐ {Math.round(member.topPoints)}</small></span>
                 </article>
               ))}
             </div>
@@ -401,49 +444,6 @@ export function MatchdayView({ state, act, notify }: { state: LeagueState; act: 
               </div>
             )}
 
-            {leagueStats && leagueStats.jornadasPlayed > 0 && (
-              <div className="matchday-records">
-                <span className="kicker">ESTADÍSTICAS GENERALES DE LA LIGA · TOP 3</span>
-                <div className="records-grid">
-                  <div className="record-card">
-                    <small>MÁS GOLES EN UNA JORNADA</small>
-                    <ol>
-                      {leagueStats.topTeamGoals.map((r, i) => (
-                        <li key={i}><i>{i + 1}</i><strong>{r.teamName}</strong><em>{r.goals} ⚽ · J{r.jornada}</em></li>
-                      ))}
-                      {leagueStats.topTeamGoals.length === 0 && <li className="record-empty">Sin goles todavía</li>}
-                    </ol>
-                  </div>
-                  <div className="record-card">
-                    <small>MEJOR JUGADOR EN UNA JORNADA</small>
-                    <ol>
-                      {leagueStats.bestPlayerRound.map((r, i) => (
-                        <li key={i}><i>{i + 1}</i><strong>{r.teamName}</strong><em>{r.playerName} · {Math.round(r.points)} pts · J{r.jornada}</em></li>
-                      ))}
-                      {leagueStats.bestPlayerRound.length === 0 && <li className="record-empty">Sin datos todavía</li>}
-                    </ol>
-                  </div>
-                  <div className="record-card">
-                    <small>MÁS TARJETAS</small>
-                    <ol>
-                      {leagueStats.topCards.map((r, i) => (
-                        <li key={i}><i>{i + 1}</i><strong>{r.teamName}</strong><em>{r.yellow} 🟨 · {r.red} 🟥</em></li>
-                      ))}
-                      {leagueStats.topCards.length === 0 && <li className="record-empty">Sin tarjetas todavía</li>}
-                    </ol>
-                  </div>
-                  <div className="record-card">
-                    <small>MÁS JORNADAS GANADAS</small>
-                    <ol>
-                      {leagueStats.topJornadasWon.map((r, i) => (
-                        <li key={i}><i>{i + 1}</i><strong>{r.teamName}</strong><em>{r.won} jornada{r.won === 1 ? "" : "s"}</em></li>
-                      ))}
-                      {leagueStats.topJornadasWon.length === 0 && <li className="record-empty">Sin datos todavía</li>}
-                    </ol>
-                  </div>
-                </div>
-              </div>
-            )}
           </>
         )}
       </section>
