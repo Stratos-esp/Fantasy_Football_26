@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkCronAuth, errorResponse } from "@/lib/api-helpers";
-import { seedLaLigaReal } from "@/lib/service";
+import { CURRENT_SEASON, seedLaLigaReal } from "@/lib/service";
 import { currentWeek, fetchSeason } from "@/lib/laliga-fantasy";
 
 // Importa jugadores, equipos, fotos y puntos reales de LaLiga Fantasy.
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   if (!db) return NextResponse.json({ error: "La base de datos no está configurada." }, { status: 503 });
   try {
     const url = new URL(request.url);
-    const season = Number(process.env.API_FOOTBALL_SEASON ?? 2025);
+    const season = CURRENT_SEASON;
     const from = Number(url.searchParams.get("from") ?? 1);
     const to = url.searchParams.get("to") ? Number(url.searchParams.get("to")) : await currentWeek();
     const players = await fetchSeason(from, Math.max(from, to));
