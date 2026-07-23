@@ -159,6 +159,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Corregido
 
+- El reparto de plantillas al reiniciar una liga respeta el presupuesto: antes
+  repartía los jugadores más caros sin tope y las plantillas se iban a ~400 M€
+  con saldo 0; ahora cada equipo queda en 70-85 M€ y muy parejo (draft serpiente
+  con objetivo ~78% del presupuesto).
 - Se repararon los nombres de usuarios que conservaban acentos dañados en la
   base de datos.
 - La Clasificación ya no abre automáticamente una ventana emergente que no se

@@ -989,17 +989,43 @@ async function assignBalancedSquads(db: Db, league: LeagueRow, memberIds: string
   }
 
   const teamSquads: PlayerRow[][] = Array.from({ length: n }, () => []);
-  // El orden inicial de los equipos se aleatoriza para que no siempre el mismo reciba los mejores
+  const teamSpent = new Array<number>(n).fill(0);
+  // El orden inicial de los equipos se aleatoriza para que no siempre el mismo reciba los mejores.
   const teamOrder = shuffle(Array.from({ length: n }, (_, i) => i));
+
+  // Draft serpiente CON TOPE DE PRESUPUESTO: cada equipo apunta a ~78% del
+  // presupuesto (dentro del 70-85%), eligiendo en cada turno el jugador libre
+  // más cercano a su gasto ideal por hueco restante, reservando un mínimo para
+  // los huecos que aún faltan. Así los equipos quedan parejos y sin pasarse.
+  const totalSlots = (Object.values(SQUAD_SHAPE) as number[]).reduce((a, b) => a + b, 0);
+  const target = Number(league.starting_budget) * 0.78;
+  const MIN_VALUE = 500_000;
 
   for (const pos of Object.keys(SQUAD_SHAPE) as Position[]) {
     const slots = SQUAD_SHAPE[pos as Position];
-    const pool = byPosition[pos as Position].slice(0, slots * n);
+    const avail = [...byPosition[pos as Position]]; // ordenados por valor desc
     for (let slot = 0; slot < slots; slot++) {
       const order = slot % 2 === 0 ? [...teamOrder] : [...teamOrder].reverse();
       for (const teamIdx of order) {
-        const player = pool.shift();
-        if (player) teamSquads[teamIdx].push(player);
+        const picksLeft = totalSlots - teamSquads[teamIdx].length; // incluye esta selección
+        const budgetLeft = target - teamSpent[teamIdx];
+        const maxNow = budgetLeft - (picksLeft - 1) * MIN_VALUE; // deja margen para los que faltan
+        const ideal = budgetLeft / picksLeft;
+        // Entre los asequibles (valor <= maxNow), el más cercano al ideal; si ninguno, el más barato.
+        let best = -1;
+        let bestDiff = Infinity;
+        for (let k = 0; k < avail.length; k++) {
+          const v = Number(avail[k].current_value);
+          if (v > maxNow) continue;
+          const diff = Math.abs(v - ideal);
+          if (diff < bestDiff) { bestDiff = diff; best = k; }
+        }
+        if (best === -1) best = avail.length - 1; // nada asequible: el más barato disponible
+        const [player] = avail.splice(best, 1);
+        if (player) {
+          teamSquads[teamIdx].push(player);
+          teamSpent[teamIdx] += Number(player.current_value);
+        }
       }
     }
   }
