@@ -59,6 +59,9 @@ const MEMBER_COLORS = ["#65d5ff", "#ff708f", "#ffd166", "#b8f35a", "#c89bff", "#
 const TOTAL_MATCHDAYS = 38;
 const SQUAD_SHAPE: Record<Position, number> = { POR: 2, DEF: 5, MED: 5, DEL: 3 };
 const MARKET_HOURS = 24;
+// Temporada activa. Configurable por entorno para pasar a la 2026-27 sin tocar
+// código: define LALIGA_SEASON=2026 (o API_FOOTBALL_SEASON) en Vercel y local.
+export const CURRENT_SEASON = Number(process.env.LALIGA_SEASON ?? process.env.API_FOOTBALL_SEASON ?? 2025);
 
 function fail(message: string, status = 400): never { throw new ServiceError(message, status); }
 
@@ -428,7 +431,7 @@ async function memberColor(db: Db, leagueId: string) {
 export async function createLeague(db: Db, userId: string, name: string, teamName: string) {
   if (!name.trim() || name.trim().length < 3) fail("El nombre de la liga debe tener al menos 3 caracteres.");
   if (!teamName.trim() || teamName.trim().length < 3) fail("El nombre de tu equipo debe tener al menos 3 caracteres.");
-  const season = 2025;
+  const season = CURRENT_SEASON;
   const { count } = await db.from("fantasy_players").select("id", { count: "exact", head: true }).eq("season", season);
   if (!count) fail("Aún no hay jugadores en la base de datos. Ejecuta primero la carga de LaLiga.", 503);
 
