@@ -21,6 +21,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
     (LaLiga + football-data.org como respaldo, que sigue disponible aunque LaLiga
     esté en mantenimiento). API-Football queda cableada como fuente opcional de
     estadísticas (requiere plan de pago para la temporada en curso).
+  - Recálculo de jornada (admin): botón «Recalcular Jn» en la vista Jornada que
+    re-sincroniza y recomputa puntos y clasificación de una jornada ya disputada
+    (para partidos aplazados). Idempotente y sin avanzar la jornada.
 
 - Historial inmutable por jornada: al disputar cada jornada se congela la
   clasificación (`fantasy_standings_history`) y las plantillas
