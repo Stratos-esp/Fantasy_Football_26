@@ -10,6 +10,13 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- Historial inmutable por jornada: al disputar cada jornada se congela la
+  clasificación (`fantasy_standings_history`) y las plantillas
+  (`fantasy_squad_history`), para que no se pierdan aunque después cambien
+  valores, normas o la lógica de la app. Preparado (idempotente) para recalcular
+  jornadas en el futuro (p. ej. partidos aplazados).
+- Copia de seguridad mensual automática (cron `/api/cron/backup`): vuelca todo el
+  histórico a un JSON en el bucket privado «backups» de Supabase Storage.
 - En la Clasificación de la jornada, cada equipo muestra en una sola línea
   (también en móvil) sus puntos, goles, tarjetas (amarillas y rojas), cuántos
   jugadores jugaron (p. ej. 8/11) y su jugador con más puntos de la jornada.

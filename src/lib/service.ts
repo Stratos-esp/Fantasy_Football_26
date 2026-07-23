@@ -768,6 +768,7 @@ export async function simulateMatchday(db: Db, league: LeagueRow, actorUserId: s
   }
 
   const { data: members } = await db.from("fantasy_league_members").select("id, user_id, team_name, budget, total_points").eq("league_id", league.id);
+  const roundSnapshot: { memberId: string; round: number; newTotal: number; newBudget: number; starterIds: Set<string> }[] = [];
   for (const member of members ?? []) {
     let { data: lineup } = await db.from("fantasy_lineups").select("id, formation, captain_player_id").eq("matchday_id", matchday.id).eq("league_member_id", member.id).maybeSingle();
     if (!lineup) {
@@ -821,6 +822,7 @@ export async function simulateMatchday(db: Db, league: LeagueRow, actorUserId: s
     const moneyAward = Math.round(Math.max(0, total) * settings.rules.moneyPerPoint);
     await db.from("fantasy_lineups").update({ total_points: total }).eq("id", lineup.id);
     await db.from("fantasy_league_members").update({ total_points: Number(member.total_points) + total, budget: Number(member.budget) + moneyAward }).eq("id", member.id);
+    roundSnapshot.push({ memberId: member.id as string, round: total, newTotal: Number(member.total_points) + total, newBudget: Number(member.budget) + moneyAward, starterIds: new Set(starters) });
     const moneyNote = moneyAward > 0 ? ` y ganaste ${(moneyAward / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 1 })} M€` : "";
     await notify(db, member.user_id as string, league.id, "matchday_played", `Jornada ${matchday.number} disputada`, `Tu equipo sumó ${Math.round(total)} pts${moneyNote}.`);
   }
@@ -844,6 +846,55 @@ export async function simulateMatchday(db: Db, league: LeagueRow, actorUserId: s
   const snapshots = valueRows.map((row) => ({ player_id: row.id, value: row.current_value, recorded_at: recordedAt }));
   for (let i = 0; i < snapshots.length; i += 200) {
     await db.from("fantasy_player_values").insert(snapshots.slice(i, i + 200));
+  }
+
+  // Snapshot inmutable de la jornada: clasificación y plantillas congeladas. No
+  // se pierde aunque después cambien valores, normas o la lógica. Idempotente
+  // por (liga, jornada, equipo) para poder recalcular en el futuro.
+  {
+    const valueMap = new Map(valueRows.map((r) => [r.id as string, Number(r.current_value)]));
+    const memberIds = roundSnapshot.map((s) => s.memberId);
+    const { data: squadRows } = memberIds.length > 0
+      ? await db.from("fantasy_squads").select("league_member_id, player_id").in("league_member_id", memberIds)
+      : { data: [] };
+    const squadsByMember = new Map<string, string[]>();
+    for (const r of squadRows ?? []) {
+      const arr = squadsByMember.get(r.league_member_id as string) ?? [];
+      arr.push(r.player_id as string);
+      squadsByMember.set(r.league_member_id as string, arr);
+    }
+    const rankByMember = new Map(
+      [...roundSnapshot].sort((a, b) => b.newTotal - a.newTotal).map((s, i) => [s.memberId, i + 1]),
+    );
+    const standingsRows = roundSnapshot.map((s) => ({
+      league_id: league.id,
+      matchday_number: matchday.number,
+      member_id: s.memberId,
+      round_points: s.round,
+      total_points: s.newTotal,
+      rank: rankByMember.get(s.memberId) ?? 0,
+      squad_value: (squadsByMember.get(s.memberId) ?? []).reduce((sum, pid) => sum + (valueMap.get(pid) ?? 0), 0),
+      budget: s.newBudget,
+    }));
+    if (standingsRows.length > 0) {
+      await db.from("fantasy_standings_history").upsert(standingsRows, { onConflict: "league_id,matchday_number,member_id" });
+    }
+    const squadHistoryRows: Record<string, unknown>[] = [];
+    for (const s of roundSnapshot) {
+      for (const pid of squadsByMember.get(s.memberId) ?? []) {
+        squadHistoryRows.push({
+          league_id: league.id,
+          matchday_number: matchday.number,
+          member_id: s.memberId,
+          player_id: pid,
+          value_at: valueMap.get(pid) ?? 0,
+          is_starter: s.starterIds.has(pid),
+        });
+      }
+    }
+    for (let i = 0; i < squadHistoryRows.length; i += 300) {
+      await db.from("fantasy_squad_history").upsert(squadHistoryRows.slice(i, i + 300), { onConflict: "league_id,matchday_number,member_id,player_id" });
+    }
   }
 
   await db.from("fantasy_matchdays").update({ status: "finished", ends_at: new Date().toISOString() }).eq("id", matchday.id);
@@ -889,6 +940,8 @@ export async function resetLeague(db: Db, league: LeagueRow, actorUserId: string
   await db.from("fantasy_direct_offers").delete().eq("league_id", league.id);
   await db.from("fantasy_transfers").delete().eq("league_id", league.id);
   await db.from("fantasy_player_scores").delete().eq("league_id", league.id);
+  await db.from("fantasy_standings_history").delete().eq("league_id", league.id);
+  await db.from("fantasy_squad_history").delete().eq("league_id", league.id);
   await db.from("fantasy_matchdays").delete().eq("league_id", league.id);
   await db.from("fantasy_chat_messages").delete().eq("league_id", league.id);
   if (memberIds.length > 0) await db.from("fantasy_squads").delete().in("league_member_id", memberIds);
