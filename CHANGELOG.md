@@ -17,6 +17,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   - Cron `advance`: cuando la jornada real ha terminado, sincroniza sus puntos y
     resuelve la jornada de cada liga; robusto ante mantenimiento/caídas (no
     resuelve con datos incompletos, reintenta al siguiente ciclo).
+  - Segunda fuente de datos: calendario/resultados con **doble fuente**
+    (LaLiga + football-data.org como respaldo, que sigue disponible aunque LaLiga
+    esté en mantenimiento). API-Football queda cableada como fuente opcional de
+    estadísticas (requiere plan de pago para la temporada en curso).
 
 - Historial inmutable por jornada: al disputar cada jornada se congela la
   clasificación (`fantasy_standings_history`) y las plantillas

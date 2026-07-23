@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkCronAuth, errorResponse } from "@/lib/api-helpers";
-import { fetchCurrentJornada, fetchSeason } from "@/lib/laliga-fantasy";
+import { fetchSeason } from "@/lib/laliga-fantasy";
+import { getJornadaState } from "@/lib/calendar";
 import { CURRENT_SEASON, seedLaLigaReal, simulateMatchday, type LeagueRow } from "@/lib/service";
 
 const LEAGUE_COLUMNS = "id, owner_id, name, invite_code, season, starting_budget, squad_size, settings, scoring_rules, current_matchday";
@@ -15,14 +16,9 @@ export async function POST(request: Request) {
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "La base de datos no está configurada." }, { status: 503 });
   try {
-    // 1) Estado de la jornada real (tolerante a mantenimiento).
-    let jornada;
-    try {
-      jornada = await fetchCurrentJornada();
-    } catch {
-      return NextResponse.json({ skipped: true, reason: "no se pudo leer el calendario (¿mantenimiento?)" });
-    }
-    if (!jornada.week) return NextResponse.json({ skipped: true, reason: "sin jornada actual" });
+    // 1) Estado de la jornada real (doble fuente: LaLiga + football-data).
+    const jornada = await getJornadaState();
+    if (!jornada.week) return NextResponse.json({ skipped: true, reason: "no se pudo leer el calendario en ninguna fuente" });
     const closed = jornada.closesAt ? new Date(jornada.closesAt).getTime() <= Date.now() : false;
     if (!jornada.allFinished || !closed) {
       return NextResponse.json({ skipped: true, reason: "jornada en curso", week: jornada.week, allFinished: jornada.allFinished, closed });
