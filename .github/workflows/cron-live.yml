@@ -1,0 +1,34 @@
+name: Cron liga en vivo
+
+# Programa los crons de "liga en vivo" (calendario/auto-bloqueo y auto-avance)
+# que no caben en Vercel Hobby (limitado a 2 crons). Ambos endpoints son
+# idempotentes y robustos: si no hay nada que hacer, no tocan nada.
+#
+# REQUISITO: añadir el secreto CRON_SECRET del repo
+#   Settings → Secrets and variables → Actions → New repository secret
+#   Name: CRON_SECRET   Value: (el mismo valor de la env CRON_SECRET en Vercel)
+
+on:
+  schedule:
+    # Cada 3 horas (UTC). Suficiente: fija el bloqueo antes de los partidos y
+    # resuelve la jornada pocas horas después de terminar.
+    - cron: "0 */3 * * *"
+  workflow_dispatch: {}
+
+env:
+  BASE_URL: https://fantasy-football-26.vercel.app
+
+jobs:
+  cron:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Calendario + auto-bloqueo
+        run: |
+          curl -sS -X POST "$BASE_URL/api/cron/sync-calendar" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -w "\nsync-calendar → HTTP %{http_code}\n" --max-time 120
+      - name: Auto-avance
+        run: |
+          curl -sS -X POST "$BASE_URL/api/cron/advance" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -w "\nadvance → HTTP %{http_code}\n" --max-time 120

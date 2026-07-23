@@ -24,6 +24,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   - Recálculo de jornada (admin): botón «Recalcular Jn» en la vista Jornada que
     re-sincroniza y recomputa puntos y clasificación de una jornada ya disputada
     (para partidos aplazados). Idempotente y sin avanzar la jornada.
+  - Programación de crons con GitHub Actions (`.github/workflows`): `cron-live`
+    (calendario+auto-bloqueo y auto-avance, cada 3 h) y `sync-season` (manual,
+    para preparar/refrescar la temporada). Requiere el secreto `CRON_SECRET`.
 
 - Historial inmutable por jornada: al disputar cada jornada se congela la
   clasificación (`fantasy_standings_history`) y las plantillas

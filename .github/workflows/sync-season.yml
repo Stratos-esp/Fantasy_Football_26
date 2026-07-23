@@ -1,0 +1,46 @@
+name: Sincronizar temporada (manual)
+
+# Preparación de temporada / puesta a punto de datos, a mano.
+# Úsalo al arrancar la 2026-27 (tras poner LALIGA_SEASON=2026 en Vercel) o para
+# refrescar datos. Ejecuta: Actions → "Sincronizar temporada (manual)" → Run.
+#
+# REQUISITO: secreto CRON_SECRET del repo (ver cron-live.yml).
+
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "Jornada desde"
+        default: "1"
+      to:
+        description: "Jornada hasta"
+        default: "1"
+
+env:
+  BASE_URL: https://fantasy-football-26.vercel.app
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Puntos y jugadores (sync-laliga)
+        run: |
+          curl -sS -X POST "$BASE_URL/api/cron/sync-laliga?from=${{ inputs.from }}&to=${{ inputs.to }}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -w "\nsync-laliga → HTTP %{http_code}\n" --max-time 300
+
+      - name: Estadísticas detalladas por bloques (sync-stats)
+        run: |
+          # Se trocea en bloques de 150 jugadores para no exceder el timeout de la
+          # función serverless (≈678 jugadores en total).
+          for OFFSET in 0 150 300 450 600; do
+            curl -sS -X POST "$BASE_URL/api/cron/sync-stats?offset=$OFFSET&limit=150" \
+              -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+              -w "\nsync-stats offset $OFFSET → HTTP %{http_code}\n" --max-time 300
+          done
+
+      - name: Calendario de la jornada en curso (sync-calendar)
+        run: |
+          curl -sS -X POST "$BASE_URL/api/cron/sync-calendar" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -w "\nsync-calendar → HTTP %{http_code}\n" --max-time 120
