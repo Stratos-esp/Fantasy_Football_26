@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CircleDollarSign, Crown, Gavel, LockKeyhole, Play, Shield, Shirt, Trophy, X } from "lucide-react";
+import { CircleDollarSign, Crown, Gavel, LockKeyhole, Play, RefreshCw, Shield, Shirt, Trophy, X } from "lucide-react";
 import { apiGet, apiPost, money, moneyInput, nameAndSurname, pitchCoordinates, positionOrder, timeAgo } from "@/lib/client";
 import { formations, type LeagueState, type LeagueStats, type MatchdayDetail, type MatchdayDetailMember, type MatchdayDetailPlayer, type RivalSquadEntry } from "@/lib/types";
 import type { Notify } from "@/components/fantasy-app";
@@ -348,6 +348,15 @@ export function MatchdayView({ state, act, notify }: { state: LeagueState; act: 
     if (ok) notify(`Jornada ${state.league.currentMatchday} disputada. ¡Mira los resultados!`);
   }
 
+  async function recalc() {
+    if (round === null) return;
+    if (!window.confirm(`¿Recalcular la jornada ${round}? Se vuelven a sincronizar y recomputar sus puntos y la clasificación (útil tras un partido aplazado).`)) return;
+    setBusy(true);
+    const ok = await act(`/api/league/${state.league.id}/recalc`, { matchday: round });
+    setBusy(false);
+    if (ok) notify(`Jornada ${round} recalculada.`);
+  }
+
   const playerRow = (player: MatchdayDetailPlayer, index: number, captainId: string | null) => (
     <div key={player.playerId} className={player.points > 0 ? "scored" : ""}>
       <b>{index + 1}</b>
@@ -400,6 +409,9 @@ export function MatchdayView({ state, act, notify }: { state: LeagueState; act: 
             <select value={round ?? ""} onChange={(event) => setRound(Number(event.target.value))}>
               {rounds.slice().reverse().map((n) => <option key={n} value={n}>Jornada {n}</option>)}
             </select>
+            {state.league.isAdmin && round !== null && (
+              <button className="ghost-button" disabled={busy} onClick={recalc} title="Re-sincroniza y recalcula esta jornada (p. ej. tras un aplazamiento)"><RefreshCw size={14} /> Recalcular J{round}</button>
+            )}
             {state.league.isAdmin && state.league.currentMatchday <= state.league.totalMatchdays && (
               <button className="button button-small" disabled={busy} onClick={simulate}><Play size={14} /> {busy ? "..." : `Disputar J${state.league.currentMatchday}`}</button>
             )}

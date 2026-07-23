@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { calculateFantasyPoints, defaultScoringRules, type PlayerMatchStats, type ScoringRules } from "@/lib/scoring";
 import { laligaTeams, seedPlayerExternalId } from "@/lib/laliga-data";
+import { fetchSeason } from "@/lib/laliga-fantasy";
 import { proposalOutcome } from "@/lib/voting";
 import {
   defaultLeagueSettings, formations, parseLeagueSettings,
@@ -1609,6 +1610,120 @@ export async function getLeagueStats(db: Db, league: LeagueRow): Promise<LeagueS
     .slice(0, 3);
 
   return { topTeamGoals, bestPlayerRound, topCards, topJornadasWon, jornadasPlayed: finished.length };
+}
+
+// Punto 6: recalcula una jornada ya disputada (p. ej. cuando se juega un partido
+// aplazado y sus puntos llegan tarde). Re-sincroniza los puntos reales de esa
+// jornada, recomputa puntuaciones y clasificación, y reescribe su snapshot.
+// Idempotente y sin avanzar la jornada actual. No reajusta saldos.
+export async function recomputeMatchday(db: Db, league: LeagueRow, number: number, actorUserId: string) {
+  const { data: matchdayRow } = await db.from("fantasy_matchdays").select("id, number, status").eq("league_id", league.id).eq("number", number).maybeSingle();
+  if (!matchdayRow) fail("Esa jornada no existe en la liga.");
+  const md = matchdayRow as { id: string; number: number; status: string };
+  const settings = leagueSettings(league);
+  const players = await fetchPlayers(db, league.season);
+  const playersById = new Map(players.map((p) => [p.id, p]));
+
+  // 1) Re-sincroniza los puntos reales de esa jornada (incluye el aplazado ya jugado).
+  try {
+    const fresh = await fetchSeason(number, number);
+    if (fresh.length > 0) {
+      await seedLaLigaReal(db, league.season, fresh.map((p) => ({ ...p, weekPoints: [...p.weekPoints.entries()], playerMasterStatusId: p.playerMasterStatusId })));
+    }
+  } catch { /* si la API falla, recalculamos con lo que ya hay en la BD */ }
+
+  // 2) Puntos reales de la jornada.
+  const { data: realRows } = await db.from("fantasy_player_week_points").select("player_id, points").eq("week", number).limit(5000);
+  const realByPlayer = new Map<string, number>();
+  for (const row of realRows ?? []) realByPlayer.set(row.player_id as string, Number(row.points));
+  if (realByPlayer.size === 0) fail("Aún no hay puntos reales para esa jornada.", 409);
+  const pointsOf = (id: string) => realByPlayer.get(id) ?? 0;
+  const playedOf = (id: string) => realByPlayer.has(id);
+
+  // 3) Recomputa las puntuaciones por jugador (idempotente).
+  const scoreRows = players.map((p) => ({
+    league_id: league.id,
+    matchday_id: md.id,
+    player_id: p.id,
+    points: pointsOf(p.id),
+    breakdown: { minutes: playedOf(p.id) ? 90 : 0, goals: 0, assists: 0, cleanSheet: false, saves: 0, penaltySaved: 0, yellowCards: 0, redCards: 0, ownGoals: 0, penaltyMissed: 0 } as unknown as Record<string, unknown>,
+  }));
+  for (let i = 0; i < scoreRows.length; i += 200) {
+    await db.from("fantasy_player_scores").upsert(scoreRows.slice(i, i + 200), { onConflict: "league_id,matchday_id,player_id" });
+  }
+
+  // 4) Recomputa el total de cada equipo para esta jornada (misma puntuación que simulate).
+  const { data: members } = await db.from("fantasy_league_members").select("id, budget").eq("league_id", league.id);
+  const roundByMember = new Map<string, { round: number; starterIds: Set<string> }>();
+  for (const member of members ?? []) {
+    const { data: lineup } = await db.from("fantasy_lineups").select("id, formation, captain_player_id").eq("matchday_id", md.id).eq("league_member_id", member.id).maybeSingle();
+    if (!lineup) continue;
+    const { data: lps } = await db.from("fantasy_lineup_players").select("player_id, is_starter, bench_order").eq("lineup_id", lineup.id);
+    const starters = (lps ?? []).filter((p) => p.is_starter).map((p) => p.player_id as string);
+    const bench = (lps ?? []).filter((p) => !p.is_starter).sort((a, b) => (a.bench_order ?? 9) - (b.bench_order ?? 9)).map((p) => p.player_id as string);
+    const usedBench = new Set<string>();
+    let total = 0;
+    for (const starterId of starters) {
+      const sp = playersById.get(starterId);
+      let eff = starterId;
+      if (settings.bench && sp && !playedOf(starterId)) {
+        const sub = bench.find((b) => { if (usedBench.has(b)) return false; const bp = playersById.get(b); return Boolean(bp && playedOf(b) && bp.position === sp.position); });
+        if (sub) { usedBench.add(sub); eff = sub; }
+      }
+      total += pointsOf(eff);
+    }
+    if (settings.captain && lineup.captain_player_id && starters.includes(lineup.captain_player_id as string)) {
+      total += pointsOf(lineup.captain_player_id as string) * (settings.captainMultiplier - 1);
+    }
+    const shape = formations[lineup.formation as string];
+    const expectedStarters = shape ? 1 + shape.DEF + shape.MED + shape.DEL : 11;
+    total += Math.max(0, expectedStarters - starters.length) * settings.rules.unalignedPenalty;
+    if (Number(member.budget) < 0) { if (settings.rules.negativeBalanceZero) total = 0; else total += settings.rules.negativeBalancePenalty; }
+    total = Math.round(total * 100) / 100;
+    await db.from("fantasy_lineups").update({ total_points: total }).eq("id", lineup.id);
+    roundByMember.set(member.id as string, { round: total, starterIds: new Set(starters) });
+  }
+
+  // 5) Recomputa member.total_points = suma de sus alineaciones en jornadas terminadas (idempotente).
+  const { data: finishedMds } = await db.from("fantasy_matchdays").select("id, number").eq("league_id", league.id).eq("status", "finished");
+  const finished = finishedMds ?? [];
+  const numberByMatchday = new Map(finished.map((m) => [m.id as string, Number(m.number)]));
+  const { data: allLineups } = finished.length > 0
+    ? await db.from("fantasy_lineups").select("matchday_id, league_member_id, total_points").in("matchday_id", finished.map((m) => m.id as string))
+    : { data: [] };
+  const totalByMember = new Map<string, number>();
+  const cumulativeUpToN = new Map<string, number>();
+  for (const l of allLineups ?? []) {
+    const mem = l.league_member_id as string;
+    const pts = Number(l.total_points);
+    totalByMember.set(mem, (totalByMember.get(mem) ?? 0) + pts);
+    if ((numberByMatchday.get(l.matchday_id as string) ?? 0) <= number) cumulativeUpToN.set(mem, (cumulativeUpToN.get(mem) ?? 0) + pts);
+  }
+  for (const [memberId, tp] of totalByMember) await db.from("fantasy_league_members").update({ total_points: Math.round(tp * 100) / 100 }).eq("id", memberId);
+
+  // 6) Reescribe el snapshot de la clasificación de esa jornada (idempotente).
+  const memberIds = (members ?? []).map((m) => m.id as string);
+  const { data: squadRows } = memberIds.length > 0
+    ? await db.from("fantasy_squads").select("league_member_id, player_id").in("league_member_id", memberIds)
+    : { data: [] };
+  const squadValueByMember = new Map<string, number>();
+  for (const r of squadRows ?? []) squadValueByMember.set(r.league_member_id as string, (squadValueByMember.get(r.league_member_id as string) ?? 0) + Number(playersById.get(r.player_id as string)?.current_value ?? 0));
+  const rankByMember = new Map([...cumulativeUpToN.entries()].sort((a, b) => b[1] - a[1]).map(([id], i) => [id, i + 1]));
+  const budgetByMember = new Map((members ?? []).map((m) => [m.id as string, Number(m.budget)]));
+  const standingsRows = [...roundByMember.entries()].map(([memberId, s]) => ({
+    league_id: league.id,
+    matchday_number: number,
+    member_id: memberId,
+    round_points: s.round,
+    total_points: cumulativeUpToN.get(memberId) ?? 0,
+    rank: rankByMember.get(memberId) ?? 0,
+    squad_value: squadValueByMember.get(memberId) ?? 0,
+    budget: budgetByMember.get(memberId) ?? 0,
+  }));
+  if (standingsRows.length > 0) await db.from("fantasy_standings_history").upsert(standingsRows, { onConflict: "league_id,matchday_number,member_id" });
+
+  await audit(db, league.id, actorUserId, "matchday_recomputed", `Se recalculó la jornada ${number}`);
+  return { matchday: number, members: roundByMember.size };
 }
 
 export async function createProposal(db: Db, league: LeagueRow, member: MemberRow, actorUserId: string, summary: string, rawSettings: unknown) {
