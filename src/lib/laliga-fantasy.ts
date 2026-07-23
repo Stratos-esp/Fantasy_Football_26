@@ -123,6 +123,51 @@ export async function currentWeek(): Promise<number> {
   return data.weekNumber ?? 38;
 }
 
+// --- Calendario de la jornada en curso (para auto-bloqueo y auto-avance) ---
+// El endpoint /api/v3/calendar y /api/v3/week/current siguen disponibles aunque
+// el de estadísticas esté en mantenimiento entre temporadas.
+export type JornadaCalendar = {
+  week: number;
+  isLive: boolean;
+  opensAt: string | null;   // hora del primer partido de la jornada
+  closesAt: string | null;  // fin de la jornada
+  matches: { externalId: string; date: string | null; state: number; localId: string; visitorId: string; localScore: number | null; visitorScore: number | null }[];
+  allFinished: boolean;     // todos los partidos con estado "finalizado" (7)
+};
+
+const MATCH_STATE_FINISHED = 7;
+
+export async function fetchCurrentJornada(): Promise<JornadaCalendar> {
+  const wk = (await authedFetch(`/api/v3/week/current`)) as {
+    weekNumber?: number; isLive?: boolean; openingWeekDate?: string; closingWeekDate?: string;
+  };
+  let raw: unknown = [];
+  try { raw = await authedFetch(`/api/v3/calendar`); } catch { raw = []; }
+  const list = Array.isArray(raw) ? (raw as Record<string, unknown>[]) : [];
+  const matches = list.map((m) => {
+    const local = (m.local ?? {}) as Record<string, unknown>;
+    const visitor = (m.visitor ?? {}) as Record<string, unknown>;
+    return {
+      externalId: String(m.id ?? ""),
+      date: (m.date ?? m.matchDate ?? null) as string | null,
+      state: Number(m.matchState ?? 0),
+      localId: String(local.id ?? ""),
+      visitorId: String(visitor.id ?? ""),
+      localScore: m.localScore == null ? null : Number(m.localScore),
+      visitorScore: m.visitorScore == null ? null : Number(m.visitorScore),
+    };
+  });
+  const allFinished = matches.length > 0 && matches.every((m) => m.state === MATCH_STATE_FINISHED);
+  return {
+    week: wk.weekNumber ?? 0,
+    isLive: Boolean(wk.isLive),
+    opensAt: wk.openingWeekDate ?? null,
+    closesAt: wk.closingWeekDate ?? null,
+    matches,
+    allFinished,
+  };
+}
+
 // --- Ficha individual: puntos por jornada, estadísticas y valor de mercado real ---
 
 export type PlayerWeekStat = { week: number; points: number };
